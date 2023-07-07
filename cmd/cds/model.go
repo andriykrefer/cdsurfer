@@ -6,9 +6,9 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"github.com/andriykrefer/cds/config"
-	"github.com/andriykrefer/cds/exp"
-	"github.com/andriykrefer/cds/term_color"
+	"github.com/andriykrefer/cdsurfer/config"
+	"github.com/andriykrefer/cdsurfer/exp"
+	"github.com/andriykrefer/cdsurfer/term_color"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"

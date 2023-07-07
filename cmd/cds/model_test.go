@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/andriykrefer/cds/config"
+	"github.com/andriykrefer/cdsurfer/config"
 )
 
 func TestCalculateColsAndRows(t *testing.T) {
