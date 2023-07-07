@@ -53,12 +53,11 @@ func (thiss *Model) Init() tea.Cmd {
 	}
 	username := currentUser.Username
 
-	// path = "/bin"
 	thiss.path = path
 	thiss.width = 80
 	thiss.height = 10
 	thiss.username = username
-	thiss.showDetails = true
+	thiss.showDetails = config.SHOW_DETAILS
 	thiss.Ls()
 	return nil
 }
@@ -102,12 +101,13 @@ func (thiss *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keyKill):
-		_, _ = fmt.Fprintln(os.Stderr)
+		// _, _ = fmt.Fprintln(os.Stderr)
+		fmt.Println(`cd "` + thiss.path + `"`)
 		return thiss, tea.Quit
 
 	case key.Matches(msg, keyQuit):
-		_, _ = fmt.Fprintln(os.Stderr)
-		fmt.Println(thiss.path)
+		// _, _ = fmt.Fprintln(os.Stderr)
+		fmt.Println(`cd "` + thiss.path + `"`)
 		return thiss, tea.Quit
 
 	case key.Matches(msg, keyLeft):
@@ -160,6 +160,10 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, keyEnter):
 		thiss.cursorEnter()
+		return thiss, nil
+
+	case key.Matches(msg, keyBack):
+		thiss.goBack()
 		return thiss, nil
 
 	case key.Matches(msg, keySpace):
@@ -248,31 +252,22 @@ func (thiss *Model) renderList() string {
 
 func (thiss *Model) renderListScreen(header, list, footer string) string {
 	ret := header + "\n" + list
-	// ret = lipgloss.NewStyle().
-	// 	Height(thiss.height - 3).
-	// 	Render(ret)
 	ret += "\n" + footer
 	return ret
 }
 
 func (thiss *Model) renderHeader() string {
 	return thiss.username + ": " + thiss.path
-	// return lipgloss.NewStyle().
-	// 	// Bold(true).
-	// 	// Underline(true).
-	// 	// Background(lipgloss.Color(config.BG_PATH)).
-	// 	Foreground(lipgloss.Color(config.FG_PATH)).
-	// 	Render(thiss.username+": "+thiss.path) + "\n"
 }
 
 func renderFooter() string {
 	return ""
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(config.FG_DISCREET)).Render("" +
-		"space: Select   shift+c: Copy   alt+x: Cut      alt+v: Paste   del: Delete" +
-		"\n" +
-		"alt+h: Help     esc: Quit       lower: Search   alt+d: Details" +
-		"",
-	)
+	// return lipgloss.NewStyle().Foreground(lipgloss.Color(config.FG_DISCREET)).Render("" +
+	// 	"space: Select   shift+c: Copy   alt+x: Cut      alt+v: Paste   del: Delete" +
+	// 	"\n" +
+	// 	"alt+h: Help     esc: Quit       lower: Search   alt+d: Details" +
+	// 	"",
+	// )
 }
 
 func (thiss *Model) Ls() {
@@ -477,6 +472,16 @@ func (thiss *Model) cursorEnter() {
 
 	thiss.path = filepath.Clean(
 		filepath.Join(thiss.path, thiss.CurrentItem().name),
+	)
+	thiss.cursorIx = 0
+	thiss.rowOffset = 0
+	thiss.Ls()
+	thiss.calculateColsAndRows()
+}
+
+func (thiss *Model) goBack() {
+	thiss.path = filepath.Clean(
+		filepath.Join(thiss.path, ".."),
 	)
 	thiss.cursorIx = 0
 	thiss.rowOffset = 0
