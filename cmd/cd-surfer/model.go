@@ -258,13 +258,13 @@ func (thiss *Model) renderHeader() string {
 }
 
 func renderFooter() string {
-	return ""
-	// return lipgloss.NewStyle().Foreground(lipgloss.Color(config.FG_DISCREET)).Render("" +
-	// 	"space: Select   shift+c: Copy   alt+x: Cut      alt+v: Paste   del: Delete" +
-	// 	"\n" +
-	// 	"alt+h: Help     esc: Quit       lower: Search   alt+d: Details" +
-	// 	"",
-	// )
+	s := "" +
+		// "space: Select   shift+c: Copy   alt+x: Cut      alt+v: Paste   del: Delete" +
+		// "\n" +
+		// "alt+h: Help     esc: Quit       lower: Search   alt+d: Details"
+		"esc: Quit   alt+d: Details"
+
+	return term_color.Gray(s, false)
 }
 
 func (thiss *Model) Ls() {
