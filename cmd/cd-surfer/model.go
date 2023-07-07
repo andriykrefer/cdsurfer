@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 
 	"github.com/andriykrefer/cdsurfer/config"
 	"github.com/andriykrefer/cdsurfer/exp"
@@ -14,26 +15,30 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-type stateEnum int
+type modeEnum int
 
 const (
-	stateList   stateEnum = 0
-	stateSearch stateEnum = 1
+	modeList   modeEnum = 0
+	modeSearch modeEnum = 1
 )
 
 type Model struct {
-	path        string
-	cursorIx    int
-	rowOffset   int
-	colSize     int
-	cols        int
-	rows        int
-	items       []Item
-	width       int
-	height      int
-	state       stateEnum
-	username    string
-	showDetails bool
+	// state
+	path          string
+	cursorIx      int
+	rowOffset     int
+	colSize       int
+	cols          int
+	rows          int
+	items         []Item // Items on the current view (may be equal to filteredItems or dirItems)
+	dirItems      []Item // All dir items
+	filteredItems []Item // Filtered Items on search view
+	width         int
+	height        int
+	mode          modeEnum
+	username      string
+	showDetails   bool
+	searchInput   string
 }
 
 type Item struct {
@@ -64,7 +69,9 @@ func (thiss *Model) Init() tea.Cmd {
 
 // https://github.com/charmbracelet/bubbletea/blob/master/key.go
 var (
-	keyQuit          = key.NewBinding(key.WithKeys("esc", "ctrl+c"))
+	keyEsc = key.NewBinding(key.WithKeys("esc"))
+	// keyQuit          = key.NewBinding(key.WithKeys("esc", "ctrl+c"))
+	keyQuit          = key.NewBinding(key.WithKeys("ctrl+c"))
 	keyQuitWithoutCd = key.NewBinding(key.WithKeys("alt+q"))
 	keyUp            = key.NewBinding(key.WithKeys("up"))
 	keyDown          = key.NewBinding(key.WithKeys("down"))
@@ -73,6 +80,7 @@ var (
 	keyEnter         = key.NewBinding(key.WithKeys("enter"))
 	keySpace         = key.NewBinding(key.WithKeys(" "))
 	keyBack          = key.NewBinding(key.WithKeys("backspace"))
+	keyParent        = key.NewBinding(key.WithKeys("alt+backspace"))
 	keyPageUp        = key.NewBinding(key.WithKeys("pgup"))
 	keyPageDown      = key.NewBinding(key.WithKeys("pgdown"))
 	keyHome          = key.NewBinding(key.WithKeys("home"))
@@ -81,6 +89,7 @@ var (
 	keyCut           = key.NewBinding(key.WithKeys("alt+x"))
 	keyPaste         = key.NewBinding(key.WithKeys("alt+v"))
 	keyDetails       = key.NewBinding(key.WithKeys("alt+d"))
+	keyClear         = key.NewBinding(key.WithKeys("ctrl+u"))
 )
 
 func (thiss *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -91,9 +100,7 @@ func (thiss *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		thiss.calculateColsAndRows()
 		return thiss, nil
 	case tea.KeyMsg:
-		if thiss.state == stateList {
-			return thiss.updateStateList(msg)
-		}
+		return thiss.updateStateList(msg)
 	}
 	return thiss, nil
 }
@@ -157,9 +164,10 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, keyEnter):
 		thiss.cursorEnter()
+		thiss.changeMode(modeList)
 		return thiss, nil
 
-	case key.Matches(msg, keyBack):
+	case key.Matches(msg, keyParent) && thiss.mode == modeList:
 		thiss.goBack()
 		return thiss, nil
 
@@ -175,76 +183,70 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		thiss.toggleSelection()
 		return thiss, nil
 
-	case key.Matches(msg, keyPaste):
+	case key.Matches(msg, keyPaste) && thiss.mode == modeList:
 		thiss.toggleSelection()
 		return thiss, nil
 
-	case key.Matches(msg, keyDetails):
+	case key.Matches(msg, keyDetails) && thiss.mode == modeList:
 		thiss.toggleDetails()
+		return thiss, nil
+
+	case key.Matches(msg, keyEsc, keyClear) && thiss.mode == modeSearch:
+		thiss.changeMode(modeList)
+		return thiss, nil
+
+	case msg.Type == tea.KeyRunes: // Change to modeSearch
+		thiss.searchInput += string(msg.Runes)
+		thiss.searchFilter(thiss.searchInput)
+		thiss.changeMode(modeSearch)
+
+	case key.Matches(msg, keyBack) && thiss.mode == modeSearch:
+		thiss.searchInput = thiss.searchInput[:len(thiss.searchInput)-1]
+		if thiss.searchInput == "" {
+			thiss.changeMode(modeList)
+		}
 		return thiss, nil
 	}
 	return thiss, nil
 }
 
 func (thiss *Model) View() string {
-	if thiss.state == stateList {
+	if thiss.mode == modeList || thiss.mode == modeSearch {
 		return thiss.renderList()
 	}
 	return ""
 }
 
 func (thiss *Model) renderList() string {
-	if thiss.showDetails {
-		listOut := ""
-		totalAbsRows := exp.TryFallback(func() int { return ((len(thiss.items) - 1) / thiss.cols) + 1 }, 0)
-		for ix, item := range thiss.items {
-			col := exp.TryFallback(func() int { return ix % thiss.cols }, 0)
-			row := exp.TryFallback(func() int { return ix / thiss.cols }, 0)
-			if row < thiss.rowOffset {
-				continue
-			}
-			relRow := max(row-thiss.rowOffset, 0)
-
-			if col == 0 {
-				isLastLine := row >= (thiss.rowOffset + thiss.rowsDisplayed())
-				willFit := row == (totalAbsRows - 1)
-				if isLastLine && !willFit {
-					listOut += "\n" + term_color.Violet("--More--", false)
-					break
-				} else if relRow != 0 {
-					listOut += "\n"
-				}
-			}
-			listOut += thiss.renderItemWithDetails(item, thiss.cursorIx == ix)
+	items := thiss.items
+	listOut := ""
+	totalAbsRows := exp.TryFallback(func() int { return ((len(items) - 1) / thiss.cols) + 1 }, 0)
+	for ix, item := range items {
+		col := exp.TryFallback(func() int { return ix % thiss.cols }, 0)
+		row := exp.TryFallback(func() int { return ix / thiss.cols }, 0)
+		if row < thiss.rowOffset {
+			continue
 		}
+		relRow := max(row-thiss.rowOffset, 0)
 
-		return thiss.renderListScreen(thiss.renderHeader(), listOut, renderFooter())
-	} else {
-		listOut := ""
-		totalAbsRows := exp.TryFallback(func() int { return ((len(thiss.items) - 1) / thiss.cols) + 1 }, 0)
-		for ix, item := range thiss.items {
-			col := exp.TryFallback(func() int { return ix % thiss.cols }, 0)
-			row := exp.TryFallback(func() int { return ix / thiss.cols }, 0)
-			if row < thiss.rowOffset {
-				continue
+		if col == 0 {
+			isLastLine := row >= (thiss.rowOffset + thiss.rowsDisplayed())
+			willFit := row == (totalAbsRows - 1)
+			if isLastLine && !willFit {
+				listOut += "\n" + term_color.Violet("--More--", false)
+				break
+			} else if relRow != 0 {
+				listOut += "\n"
 			}
-			relRow := max(row-thiss.rowOffset, 0)
-
-			if col == 0 {
-				isLastLine := row >= (thiss.rowOffset + thiss.rowsDisplayed())
-				willFit := row == (totalAbsRows - 1)
-				if isLastLine && !willFit {
-					listOut += "\n" + term_color.Violet("--More--", false)
-					break
-				} else if relRow != 0 {
-					listOut += "\n"
-				}
-			}
+		}
+		if thiss.showDetails {
+			listOut += thiss.renderItemWithDetails(item, thiss.cursorIx == ix)
+		} else {
 			listOut += thiss.renderItem(item, thiss.cursorIx == ix)
 		}
-
-		return thiss.renderListScreen(thiss.renderHeader(), listOut, renderFooter())
 	}
+
+	return thiss.renderListScreen(thiss.renderHeader(), listOut, renderFooter())
 }
 
 func (thiss *Model) renderListScreen(header, list, footer string) string {
@@ -254,7 +256,11 @@ func (thiss *Model) renderListScreen(header, list, footer string) string {
 }
 
 func (thiss *Model) renderHeader() string {
-	return thiss.username + ": " + thiss.path
+	o := thiss.username + ": " + thiss.path
+	if thiss.mode == modeSearch {
+		o = strings.TrimSuffix(o, "/") + "/" + term_color.Violet(thiss.searchInput, false)
+	}
+	return o
 }
 
 func renderFooter() string {
@@ -302,6 +308,7 @@ func (thiss *Model) Ls() {
 	if config.LIST_FOLDERS_FIRST {
 		thiss.items = sortItemsFoldersFirst(thiss.items)
 	}
+	thiss.dirItems = thiss.items
 }
 
 func sortItemsFoldersFirst(items []Item) []Item {
@@ -377,9 +384,34 @@ func (thiss *Model) renderItemWithDetails(item Item, isFocused bool) string {
 	return term_color.Gray(details, false) + "    " + style.Render(addColorByFileType(item.name, item, isFocused))
 }
 
+func (thiss *Model) changeMode(mode modeEnum) {
+	if mode == modeSearch {
+		thiss.mode = modeSearch
+		thiss.items = thiss.filteredItems
+		thiss.calculateColsAndRows()
+	} else if mode == modeList {
+		thiss.searchInput = ""
+		thiss.mode = modeList
+		thiss.items = thiss.dirItems
+		thiss.calculateColsAndRows()
+	}
+}
+
+func (thiss *Model) searchFilter(input string) {
+	filtered := []Item{}
+	for _, v := range thiss.dirItems {
+		var a = strings.ToLower(input)
+		var b = strings.ToLower(v.name)
+		if strings.Contains(b, a) {
+			filtered = append(filtered, v)
+		}
+	}
+	thiss.filteredItems = filtered
+}
+
 func (thiss *Model) calculateColsAndRows() {
 
-	if thiss.showDetails {
+	if thiss.showDetails || thiss.mode == modeSearch {
 		thiss.cols = 1
 		thiss.colSize = thiss.width
 		thiss.rows = len(thiss.items)
@@ -415,28 +447,6 @@ func (thiss *Model) cursorAdd(val int) {
 	thiss.cursorIx = minMax(thiss.cursorIx+val, 0, len(thiss.items)-1)
 }
 
-// func (thiss *Model) cursorLeft() {
-// 	thiss.cursorIx -= 1
-// 	if thiss.cursorIx < 0 {
-// 		thiss.cursorIx = 0
-// 	}
-// }
-
-// func (thiss *Model) cursorRight() {
-// 	thiss.cursorIx += 1
-// 	if thiss.cursorIx > len(thiss.items)-1 {
-// 		thiss.cursorIx = len(thiss.items) - 1
-// 	}
-// }
-
-// func (thiss *Model) cursorUp() {
-// 	thiss.cursorIx = max(thiss.cursorIx-thiss.cols, 0)
-// }
-
-// func (thiss *Model) cursorDown() {
-// 	thiss.cursorIx = min(thiss.cursorIx+thiss.cols, len(thiss.items)-1)
-// }
-
 func (thiss *Model) isCursorDisplayed() bool {
 	cursor := thiss.cursorRowIx()
 	return (cursor < (thiss.rowOffset + thiss.rowsDisplayed())) && (cursor >= thiss.rowOffset)
@@ -451,9 +461,6 @@ func (thiss *Model) cursorRowIx() int {
 }
 
 func (thiss *Model) rowsDisplayed() int {
-	// if thiss.hasFit {
-	// 	return max(thiss.height-4, 1)
-	// }
 	return max(thiss.height-5, 1)
 }
 
