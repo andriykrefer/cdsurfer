@@ -21,17 +21,18 @@ const (
 )
 
 type Model struct {
-	path      string
-	cursorIx  int
-	rowOffset int
-	colSize   int
-	cols      int
-	rows      int
-	items     []Item
-	width     int
-	height    int
-	state     stateEnum
-	username  string
+	path        string
+	cursorIx    int
+	rowOffset   int
+	colSize     int
+	cols        int
+	rows        int
+	items       []Item
+	width       int
+	height      int
+	state       stateEnum
+	username    string
+	showDetails bool
 }
 
 type Item struct {
@@ -51,6 +52,7 @@ func (thiss *Model) Init() tea.Cmd {
 	}
 	username := currentUser.Username
 
+	path = "/"
 	thiss.path = path
 	thiss.width = 80
 	thiss.height = 10
@@ -77,6 +79,7 @@ var (
 	keyCopy     = key.NewBinding(key.WithKeys("C"))
 	keyCut      = key.NewBinding(key.WithKeys("alt+x"))
 	keyPaste    = key.NewBinding(key.WithKeys("alt+v"))
+	keyDetails  = key.NewBinding(key.WithKeys("alt+d"))
 )
 
 func (thiss *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -172,44 +175,84 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keyPaste):
 		thiss.toggleSelection()
 		return thiss, nil
+
+	case key.Matches(msg, keyDetails):
+		thiss.toggleDetails()
+		return thiss, nil
 	}
 	return thiss, nil
 }
 
 func (thiss *Model) View() string {
-	listOut := ""
-	totalAbsRows := exp.TryFallback(func() int { return ((len(thiss.items) - 1) / thiss.cols) + 1 }, 0)
-	for ix, item := range thiss.items {
-		col := exp.TryFallback(func() int { return ix % thiss.cols }, 0)
-		row := exp.TryFallback(func() int { return ix / thiss.cols }, 0)
-		if row < thiss.rowOffset {
-			continue
-		}
-		relRow := max(row-thiss.rowOffset, 0)
-
-		if col == 0 {
-			isLastLine := row >= (thiss.rowOffset + thiss.rowsDisplayed())
-			willFit := row == (totalAbsRows - 1)
-			if isLastLine && !willFit {
-				listOut += lipgloss.NewStyle().
-					Foreground(lipgloss.Color(config.FG_MORE)).
-					Render("\n--More--")
-				break
-			} else if relRow != 0 {
-				listOut += "\n"
-			}
-		}
-		listOut += thiss.renderItem(item, thiss.cursorIx == ix)
+	if thiss.state == stateList {
+		return thiss.renderList()
 	}
+	return ""
+}
 
-	return thiss.renderListScreen(thiss.renderHeader(), listOut, renderFooter())
+func (thiss *Model) renderList() string {
+	if thiss.showDetails {
+		listOut := ""
+		totalAbsRows := exp.TryFallback(func() int { return ((len(thiss.items) - 1) / thiss.cols) + 1 }, 0)
+		for ix, item := range thiss.items {
+			col := exp.TryFallback(func() int { return ix % thiss.cols }, 0)
+			row := exp.TryFallback(func() int { return ix / thiss.cols }, 0)
+			if row < thiss.rowOffset {
+				continue
+			}
+			relRow := max(row-thiss.rowOffset, 0)
+
+			if col == 0 {
+				isLastLine := row >= (thiss.rowOffset + thiss.rowsDisplayed())
+				willFit := row == (totalAbsRows - 1)
+				if isLastLine && !willFit {
+					listOut += lipgloss.NewStyle().
+						Foreground(lipgloss.Color(config.FG_MORE)).
+						Render("\n--More--")
+					break
+				} else if relRow != 0 {
+					listOut += "\n"
+				}
+			}
+			listOut += thiss.renderItemWithDetails(item, thiss.cursorIx == ix)
+		}
+
+		return thiss.renderListScreen(thiss.renderHeader(), listOut, renderFooter())
+	} else {
+		listOut := ""
+		totalAbsRows := exp.TryFallback(func() int { return ((len(thiss.items) - 1) / thiss.cols) + 1 }, 0)
+		for ix, item := range thiss.items {
+			col := exp.TryFallback(func() int { return ix % thiss.cols }, 0)
+			row := exp.TryFallback(func() int { return ix / thiss.cols }, 0)
+			if row < thiss.rowOffset {
+				continue
+			}
+			relRow := max(row-thiss.rowOffset, 0)
+
+			if col == 0 {
+				isLastLine := row >= (thiss.rowOffset + thiss.rowsDisplayed())
+				willFit := row == (totalAbsRows - 1)
+				if isLastLine && !willFit {
+					listOut += lipgloss.NewStyle().
+						Foreground(lipgloss.Color(config.FG_MORE)).
+						Render("\n--More--")
+					break
+				} else if relRow != 0 {
+					listOut += "\n"
+				}
+			}
+			listOut += thiss.renderItem(item, thiss.cursorIx == ix)
+		}
+
+		return thiss.renderListScreen(thiss.renderHeader(), listOut, renderFooter())
+	}
 }
 
 func (thiss *Model) renderListScreen(header, list, footer string) string {
 	ret := header + "\n" + list
-	ret = lipgloss.NewStyle().
-		Height(thiss.height - 3).
-		Render(ret)
+	// ret = lipgloss.NewStyle().
+	// 	Height(thiss.height - 3).
+	// 	Render(ret)
 	ret += "\n" + footer
 	return ret
 }
@@ -225,6 +268,7 @@ func (thiss *Model) renderHeader() string {
 }
 
 func renderFooter() string {
+	return ""
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(config.FG_DISCREET)).Render("" +
 		"space: Select   shift+c: Copy   alt+x: Cut      alt+v: Paste   del: Delete" +
 		"\n" +
@@ -278,14 +322,26 @@ func sortItemsFoldersFirst(items []Item) []Item {
 	return ret
 }
 
-func (thiss *Model) renderItem(item Item, isFocused bool) string {
-	style := lipgloss.NewStyle()
-	// if thiss.rows == 1 {
-	// style = style.MarginRight(config.FILES_SEPARATOR_SZ)
-	// } else {
-	style = style.Width(thiss.colSize)
-	// }
+// mergeFileStyle add colors and bold style to an initial style. Based on file types
+func mergeFileStyle(initialStyle lipgloss.Style, item Item, isFocused bool) lipgloss.Style {
+	isExecutable := func(item Item) bool {
+		if item.fileInfo == nil {
+			return false
+		}
+		perm := item.fileInfo.Mode().String()
+		return (perm[3:4] == "x") ||
+			(perm[6:7] == "x") ||
+			(perm[9:10] == "x")
+	}
 
+	isSymlink := func(item Item) bool {
+		if item.fileInfo == nil {
+			return false
+		}
+		return (item.fileInfo.Mode()&os.ModeSymlink == os.ModeSymlink)
+	}
+
+	style := initialStyle
 	if item.fileInfo == nil {
 		style = style.
 			Bold(true).
@@ -294,8 +350,14 @@ func (thiss *Model) renderItem(item Item, isFocused bool) string {
 		style = style.
 			Bold(true).
 			Foreground(lipgloss.Color(config.FG_FOLDER))
-	} else {
-		//
+	} else if isSymlink(item) {
+		style = style.
+			Bold(true).
+			Foreground(lipgloss.Color(config.FG_SYMLINK))
+	} else if isExecutable(item) {
+		style = style.
+			Bold(true).
+			Foreground(lipgloss.Color(config.FG_EXEC))
 	}
 
 	if item.isSelected {
@@ -303,28 +365,41 @@ func (thiss *Model) renderItem(item Item, isFocused bool) string {
 	}
 
 	if isFocused {
-		// style = style.Reverse(true)
 		style = style.Background(lipgloss.Color(config.BG_CURSOR))
 	}
+
+	return style
+}
+
+func (thiss *Model) renderItem(item Item, isFocused bool) string {
+	style := lipgloss.NewStyle().Width(thiss.colSize)
+	style = mergeFileStyle(style, item, isFocused)
 	return style.Render(item.name)
 }
 
+func (thiss *Model) renderItemWithDetails(item Item, isFocused bool) string {
+	style := lipgloss.NewStyle().Width(thiss.colSize)
+	style = mergeFileStyle(style, item, isFocused)
+
+	details := "drwxrwxr-x 5 andriy andriy 4,0K jul  7 03:29 "
+	if item.fileInfo != nil {
+		perm := item.fileInfo.Mode().String()
+		details = perm[3:4] + "" +
+			perm[6:7] + "" +
+			perm[9:10]
+
+	}
+	return details + "    " + style.Render(item.name)
+}
+
 func (thiss *Model) calculateColsAndRows() {
-	// itemsNames := []string{}
-	// for _, i := range thiss.items {
-	// 	itemsNames = append(itemsNames, i.name)
-	// }
-	// doesFitInOneCol := len(
-	// 	strings.Join(
-	// 		itemsNames,
-	// 		strings.Repeat(".", config.FILES_SEPARATOR_SZ),
-	// 	),
-	// ) < thiss.width
-	// if doesFitInOneCol {
-	// 	thiss.cols = 0
-	// 	thiss.rows = 1
-	// 	return
-	// }
+
+	if thiss.showDetails {
+		thiss.cols = 1
+		thiss.colSize = thiss.width
+		thiss.rows = len(thiss.items)
+		return
+	}
 
 	maxColSize := thiss.maxItemLength() + config.FILES_SEPARATOR_SZ
 	if maxColSize >= thiss.width {
@@ -420,4 +495,9 @@ func (thiss *Model) toggleSelection() {
 		return
 	}
 	thiss.items[thiss.cursorIx].isSelected = !thiss.items[thiss.cursorIx].isSelected
+}
+
+func (thiss *Model) toggleDetails() {
+	thiss.showDetails = !thiss.showDetails
+	thiss.calculateColsAndRows()
 }
