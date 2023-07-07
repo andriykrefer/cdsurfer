@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/andriykrefer/cds/config"
 	"github.com/andriykrefer/cds/exp"
@@ -13,11 +12,11 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-type modeTypes int
+type stateEnum int
 
 const (
-	modeList   modeTypes = 0
-	modeSearch modeTypes = 1
+	stateList   stateEnum = 0
+	stateSearch stateEnum = 1
 )
 
 type Model struct {
@@ -30,7 +29,8 @@ type Model struct {
 	items     []Item
 	width     int
 	height    int
-	mode      modeTypes
+	state     stateEnum
+	hasFit    bool
 }
 
 type Item struct {
@@ -68,100 +68,120 @@ func (thiss *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		thiss.calculateColsAndRows()
 		return thiss, nil
 	case tea.KeyMsg:
-		switch {
-		case key.Matches(msg, keyKill):
-			_, _ = fmt.Fprintln(os.Stderr)
-			return thiss, tea.Quit
-
-		case key.Matches(msg, keyQuit):
-			_, _ = fmt.Fprintln(os.Stderr)
-			fmt.Println(thiss.path)
-			return thiss, tea.Quit
-		case key.Matches(msg, keyLeft):
-			thiss.cursorAdd(-1)
-			if !thiss.isCursorDisplayed() {
-				thiss.addRowOffset(-1)
-			}
-			return thiss, nil
-		case key.Matches(msg, keyRight):
-			thiss.cursorAdd(1)
-			if !thiss.isCursorDisplayed() {
-				thiss.addRowOffset(1)
-			}
-			return thiss, nil
-		case key.Matches(msg, keyUp):
-			thiss.cursorAdd(-thiss.cols)
-			if !thiss.isCursorDisplayed() {
-				thiss.addRowOffset(-1)
-			}
-			return thiss, nil
-		case key.Matches(msg, keyDown):
-			thiss.cursorAdd(thiss.cols)
-			if !thiss.isCursorDisplayed() {
-				thiss.addRowOffset(1)
-			}
-			return thiss, nil
-		case key.Matches(msg, keyPageDown):
-			thiss.cursorAdd(thiss.cols * thiss.rowsDisplayed())
-			thiss.rowOffset = thiss.cursorRowIx()
-			return thiss, nil
-		case key.Matches(msg, keyPageUp):
-			thiss.cursorAdd(-thiss.cols * thiss.rowsDisplayed())
-			thiss.rowOffset = thiss.cursorRowIx()
-			return thiss, nil
-		case key.Matches(msg, keyHome):
-			thiss.cursorIx = 0
-			thiss.rowOffset = 0
-			return thiss, nil
-		case key.Matches(msg, keyEnd):
-			thiss.cursorIx = len(thiss.items) - 1
-			thiss.rowOffset = thiss.cursorRowIx()
-			return thiss, nil
-		case key.Matches(msg, keyEnter):
-			thiss.cursorEnter()
-			return thiss, nil
-		case key.Matches(msg, keySpace):
-			thiss.toggleSelection()
-			return thiss, nil
+		if thiss.state == stateList {
+			return thiss.updateStateList(msg)
 		}
 	}
 	return thiss, nil
 }
 
+func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, keyKill):
+		_, _ = fmt.Fprintln(os.Stderr)
+		return thiss, tea.Quit
+
+	case key.Matches(msg, keyQuit):
+		_, _ = fmt.Fprintln(os.Stderr)
+		fmt.Println(thiss.path)
+		return thiss, tea.Quit
+
+	case key.Matches(msg, keyLeft):
+		thiss.cursorAdd(-1)
+		if !thiss.isCursorDisplayed() {
+			thiss.addRowOffset(-1)
+		}
+		return thiss, nil
+
+	case key.Matches(msg, keyRight):
+		thiss.cursorAdd(1)
+		if !thiss.isCursorDisplayed() {
+			thiss.addRowOffset(1)
+		}
+		return thiss, nil
+
+	case key.Matches(msg, keyUp):
+		thiss.cursorAdd(-thiss.cols)
+		if !thiss.isCursorDisplayed() {
+			thiss.addRowOffset(-1)
+		}
+		return thiss, nil
+
+	case key.Matches(msg, keyDown):
+		thiss.cursorAdd(thiss.cols)
+		if !thiss.isCursorDisplayed() {
+			thiss.addRowOffset(1)
+		}
+		return thiss, nil
+
+	case key.Matches(msg, keyPageDown):
+		thiss.cursorAdd(thiss.cols * thiss.rowsDisplayed())
+		thiss.rowOffset = thiss.cursorRowIx()
+		return thiss, nil
+
+	case key.Matches(msg, keyPageUp):
+		thiss.cursorAdd(-thiss.cols * thiss.rowsDisplayed())
+		thiss.rowOffset = thiss.cursorRowIx()
+		return thiss, nil
+
+	case key.Matches(msg, keyHome):
+		thiss.cursorIx = 0
+		thiss.rowOffset = 0
+		return thiss, nil
+
+	case key.Matches(msg, keyEnd):
+		thiss.cursorIx = len(thiss.items) - 1
+		thiss.rowOffset = thiss.cursorRowIx()
+		return thiss, nil
+
+	case key.Matches(msg, keyEnter):
+		thiss.cursorEnter()
+		return thiss, nil
+
+	case key.Matches(msg, keySpace):
+		thiss.toggleSelection()
+		return thiss, nil
+	}
+	return thiss, nil
+}
+
 func (thiss *Model) View() string {
-	// return "window size: " + strconv.Itoa(thiss.width) + " " + strconv.Itoa(thiss.height)
-	// out := "- " + strconv.Itoa(len(thiss.items))
-	hasMore := false
 	out := ""
-	rows := 0
+	totalAbsRows := exp.TryFallback(func() int { return ((len(thiss.items) - 1) / thiss.cols) + 1 }, 0)
 	for ix, item := range thiss.items {
 		col := exp.TryFallback(func() int { return ix % thiss.cols }, 0)
 		row := exp.TryFallback(func() int { return ix / thiss.cols }, 0)
-		// col := ix % thiss.cols
-		// row := ix / thiss.cols
 		if row < thiss.rowOffset {
 			continue
 		}
 		relRow := max(row-thiss.rowOffset, 0)
-		rows = relRow + 1
 
 		if col == 0 {
-			if row >= (thiss.rowOffset + thiss.rowsDisplayed()) {
-				hasMore = true
+			isLastLine := row >= (thiss.rowOffset + thiss.rowsDisplayed())
+			willFit := row == (totalAbsRows - 1)
+			if isLastLine && !willFit {
+				out += lipgloss.NewStyle().
+					Foreground(lipgloss.Color(config.FG_MORE)).
+					Render("\n--More--")
 				break
 			} else if relRow != 0 {
 				out += "\n"
 			}
 		}
 		out += thiss.renderItem(item, thiss.cursorIx == ix)
+	}
+	ret := "=== HEADER ===\n" + out
+	ret = lipgloss.NewStyle().
+		Height(thiss.height - 3).
+		Render(ret)
+	ret += "\n" + renderFooter()
+	return ret
+}
 
-	}
-	emptylines := strings.Repeat("\n", minMax(thiss.rowsDisplayed()-rows, 0, thiss.height))
-	footer := "====="
-	if hasMore {
-		footer = "( ... more )"
-	}
-	return "===HEADER===\n" + out + emptylines + "\n" + footer
+func renderFooter() string {
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(config.FG_DISCREET)).Render("" +
+		"space: Select    alt+c: Copy    alt+x: Cut    alt+v: Paste\n" +
+		"alpha: Search    alt+h: Help")
 }
 
 func (thiss *Model) Ls() {
@@ -322,6 +342,9 @@ func (thiss *Model) cursorRowIx() int {
 }
 
 func (thiss *Model) rowsDisplayed() int {
+	// if thiss.hasFit {
+	// 	return max(thiss.height-4, 1)
+	// }
 	return max(thiss.height-5, 1)
 }
 
