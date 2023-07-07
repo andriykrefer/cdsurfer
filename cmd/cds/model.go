@@ -8,6 +8,7 @@ import (
 
 	"github.com/andriykrefer/cds/config"
 	"github.com/andriykrefer/cds/exp"
+	"github.com/andriykrefer/cds/term_color"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -52,11 +53,12 @@ func (thiss *Model) Init() tea.Cmd {
 	}
 	username := currentUser.Username
 
-	path = "/"
+	// path = "/bin"
 	thiss.path = path
 	thiss.width = 80
 	thiss.height = 10
 	thiss.username = username
+	thiss.showDetails = true
 	thiss.Ls()
 	return nil
 }
@@ -206,9 +208,7 @@ func (thiss *Model) renderList() string {
 				isLastLine := row >= (thiss.rowOffset + thiss.rowsDisplayed())
 				willFit := row == (totalAbsRows - 1)
 				if isLastLine && !willFit {
-					listOut += lipgloss.NewStyle().
-						Foreground(lipgloss.Color(config.FG_MORE)).
-						Render("\n--More--")
+					listOut += "\n" + term_color.Violet("--More--", false)
 					break
 				} else if relRow != 0 {
 					listOut += "\n"
@@ -233,9 +233,7 @@ func (thiss *Model) renderList() string {
 				isLastLine := row >= (thiss.rowOffset + thiss.rowsDisplayed())
 				willFit := row == (totalAbsRows - 1)
 				if isLastLine && !willFit {
-					listOut += lipgloss.NewStyle().
-						Foreground(lipgloss.Color(config.FG_MORE)).
-						Render("\n--More--")
+					listOut += "\n" + term_color.Violet("--More--", false)
 					break
 				} else if relRow != 0 {
 					listOut += "\n"
@@ -282,7 +280,21 @@ func (thiss *Model) Ls() {
 	if err != nil {
 		panic(err)
 	}
-	thiss.items = []Item{{name: "../"}}
+	addPreviousDir := func() []Item {
+		if filepath.Clean(thiss.path) == "/" {
+			return []Item{}
+		}
+		previousDirStat, err := os.Stat(filepath.Clean(filepath.Join(thiss.path, "..")))
+		if err != nil {
+			panic(err)
+		}
+		return []Item{{
+			name:     "../",
+			fileInfo: previousDirStat,
+		}}
+	}
+
+	thiss.items = addPreviousDir()
 	for _, f := range files {
 		info, _ := f.Info()
 		name := info.Name()
@@ -322,8 +334,7 @@ func sortItemsFoldersFirst(items []Item) []Item {
 	return ret
 }
 
-// mergeFileStyle add colors and bold style to an initial style. Based on file types
-func mergeFileStyle(initialStyle lipgloss.Style, item Item, isFocused bool) lipgloss.Style {
+func addColorByFileType(text string, item Item, isFocused bool) string {
 	isExecutable := func(item Item) bool {
 		if item.fileInfo == nil {
 			return false
@@ -341,55 +352,37 @@ func mergeFileStyle(initialStyle lipgloss.Style, item Item, isFocused bool) lipg
 		return (item.fileInfo.Mode()&os.ModeSymlink == os.ModeSymlink)
 	}
 
-	style := initialStyle
-	if item.fileInfo == nil {
-		style = style.
-			Bold(true).
-			Foreground(lipgloss.Color(config.FG_FOLDER))
-	} else if item.fileInfo.IsDir() {
-		style = style.
-			Bold(true).
-			Foreground(lipgloss.Color(config.FG_FOLDER))
-	} else if isSymlink(item) {
-		style = style.
-			Bold(true).
-			Foreground(lipgloss.Color(config.FG_SYMLINK))
-	} else if isExecutable(item) {
-		style = style.
-			Bold(true).
-			Foreground(lipgloss.Color(config.FG_EXEC))
-	}
-
-	if item.isSelected {
-		style = style.Background(lipgloss.Color(config.BG_SELECTED))
-	}
-
 	if isFocused {
-		style = style.Background(lipgloss.Color(config.BG_CURSOR))
+		text = term_color.Violet(text, true)
+	} else if item.isSelected {
+		text = term_color.Orange(text, true)
+	} else if item.fileInfo == nil {
+		text = term_color.Blue(text, false)
+	} else if item.fileInfo.IsDir() {
+		text = term_color.Blue(text, false)
+	} else if isSymlink(item) {
+		// text = term_color.Yellow(text)
+		// style = style.UnsetBold()
+		// style = style.
+		// Bold(true).
+		// Foreground(lipgloss.Color(config.FG_SYMLINK))
+	} else if isExecutable(item) {
+		text = term_color.Green(text, false)
 	}
 
-	return style
+	return text
 }
-
 func (thiss *Model) renderItem(item Item, isFocused bool) string {
 	style := lipgloss.NewStyle().Width(thiss.colSize)
-	style = mergeFileStyle(style, item, isFocused)
-	return style.Render(item.name)
+	return style.Render(addColorByFileType(item.name, item, isFocused))
 }
 
 func (thiss *Model) renderItemWithDetails(item Item, isFocused bool) string {
 	style := lipgloss.NewStyle().Width(thiss.colSize)
-	style = mergeFileStyle(style, item, isFocused)
 
-	details := "drwxrwxr-x 5 andriy andriy 4,0K jul  7 03:29 "
-	if item.fileInfo != nil {
-		perm := item.fileInfo.Mode().String()
-		details = perm[3:4] + "" +
-			perm[6:7] + "" +
-			perm[9:10]
-
-	}
-	return details + "    " + style.Render(item.name)
+	// details := "drwxrwxr-x 5 andriy andriy 4,0K jul  7 03:29 "
+	details := item.fileInfo.Mode().String()
+	return term_color.Gray(details, false) + "    " + style.Render(addColorByFileType(item.name, item, isFocused))
 }
 
 func (thiss *Model) calculateColsAndRows() {
@@ -486,6 +479,7 @@ func (thiss *Model) cursorEnter() {
 		filepath.Join(thiss.path, thiss.CurrentItem().name),
 	)
 	thiss.cursorIx = 0
+	thiss.rowOffset = 0
 	thiss.Ls()
 	thiss.calculateColsAndRows()
 }
