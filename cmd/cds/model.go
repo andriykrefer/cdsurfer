@@ -64,23 +64,23 @@ func (thiss *Model) Init() tea.Cmd {
 
 // https://github.com/charmbracelet/bubbletea/blob/master/key.go
 var (
-	keyKill     = key.NewBinding(key.WithKeys("ctrl+c"))
-	keyQuit     = key.NewBinding(key.WithKeys("esc"))
-	keyUp       = key.NewBinding(key.WithKeys("up"))
-	keyDown     = key.NewBinding(key.WithKeys("down"))
-	keyLeft     = key.NewBinding(key.WithKeys("left"))
-	keyRight    = key.NewBinding(key.WithKeys("right"))
-	keyEnter    = key.NewBinding(key.WithKeys("enter"))
-	keySpace    = key.NewBinding(key.WithKeys(" "))
-	keyBack     = key.NewBinding(key.WithKeys("backspace"))
-	keyPageUp   = key.NewBinding(key.WithKeys("pgup"))
-	keyPageDown = key.NewBinding(key.WithKeys("pgdown"))
-	keyHome     = key.NewBinding(key.WithKeys("home"))
-	keyEnd      = key.NewBinding(key.WithKeys("end"))
-	keyCopy     = key.NewBinding(key.WithKeys("C"))
-	keyCut      = key.NewBinding(key.WithKeys("alt+x"))
-	keyPaste    = key.NewBinding(key.WithKeys("alt+v"))
-	keyDetails  = key.NewBinding(key.WithKeys("alt+d"))
+	keyQuit          = key.NewBinding(key.WithKeys("esc", "ctrl+c"))
+	keyQuitWithoutCd = key.NewBinding(key.WithKeys("alt+q"))
+	keyUp            = key.NewBinding(key.WithKeys("up"))
+	keyDown          = key.NewBinding(key.WithKeys("down"))
+	keyLeft          = key.NewBinding(key.WithKeys("left"))
+	keyRight         = key.NewBinding(key.WithKeys("right"))
+	keyEnter         = key.NewBinding(key.WithKeys("enter"))
+	keySpace         = key.NewBinding(key.WithKeys(" "))
+	keyBack          = key.NewBinding(key.WithKeys("backspace"))
+	keyPageUp        = key.NewBinding(key.WithKeys("pgup"))
+	keyPageDown      = key.NewBinding(key.WithKeys("pgdown"))
+	keyHome          = key.NewBinding(key.WithKeys("home"))
+	keyEnd           = key.NewBinding(key.WithKeys("end"))
+	keyCopy          = key.NewBinding(key.WithKeys("C"))
+	keyCut           = key.NewBinding(key.WithKeys("alt+x"))
+	keyPaste         = key.NewBinding(key.WithKeys("alt+v"))
+	keyDetails       = key.NewBinding(key.WithKeys("alt+d"))
 )
 
 func (thiss *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -100,14 +100,11 @@ func (thiss *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, keyKill):
-		// _, _ = fmt.Fprintln(os.Stderr)
+	case key.Matches(msg, keyQuit):
 		fmt.Println(`cd "` + thiss.path + `"`)
 		return thiss, tea.Quit
 
-	case key.Matches(msg, keyQuit):
-		// _, _ = fmt.Fprintln(os.Stderr)
-		fmt.Println(`cd "` + thiss.path + `"`)
+	case key.Matches(msg, keyQuitWithoutCd):
 		return thiss, tea.Quit
 
 	case key.Matches(msg, keyLeft):
@@ -499,4 +496,7 @@ func (thiss *Model) toggleSelection() {
 func (thiss *Model) toggleDetails() {
 	thiss.showDetails = !thiss.showDetails
 	thiss.calculateColsAndRows()
+	// Re calculate offset. Put on the center of the screen
+	thiss.rowOffset = 0
+	thiss.addRowOffset(thiss.cursorRowIx() - (thiss.rowsDisplayed() / 2))
 }
