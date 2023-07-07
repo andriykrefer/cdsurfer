@@ -69,9 +69,8 @@ func (thiss *Model) Init() tea.Cmd {
 
 // https://github.com/charmbracelet/bubbletea/blob/master/key.go
 var (
-	keyEsc = key.NewBinding(key.WithKeys("esc"))
-	// keyQuit          = key.NewBinding(key.WithKeys("esc", "ctrl+c"))
-	keyQuit          = key.NewBinding(key.WithKeys("ctrl+c"))
+	keyEsc           = key.NewBinding(key.WithKeys("esc"))
+	keyKill          = key.NewBinding(key.WithKeys("ctrl+c"))
 	keyQuitWithoutCd = key.NewBinding(key.WithKeys("alt+q"))
 	keyUp            = key.NewBinding(key.WithKeys("up"))
 	keyDown          = key.NewBinding(key.WithKeys("down"))
@@ -107,7 +106,13 @@ func (thiss *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, keyQuit):
+	case key.Matches(msg, keyKill):
+		fmt.Fprintf(os.Stderr, "\n")
+		fmt.Println(`cd "` + thiss.path + `"`)
+		return thiss, tea.Quit
+
+	case key.Matches(msg, keyEsc) && thiss.mode == modeList:
+		fmt.Fprintf(os.Stderr, "\n")
 		fmt.Println(`cd "` + thiss.path + `"`)
 		return thiss, tea.Quit
 
@@ -172,7 +177,8 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return thiss, nil
 
 	case key.Matches(msg, keySpace):
-		thiss.toggleSelection()
+		// TODO: Selections
+		// thiss.toggleSelection()
 		return thiss, nil
 
 	case key.Matches(msg, keyCopy):
@@ -268,7 +274,7 @@ func renderFooter() string {
 		// "space: Select   shift+c: Copy   alt+x: Cut      alt+v: Paste   del: Delete" +
 		// "\n" +
 		// "alt+h: Help     esc: Quit       lower: Search   alt+d: Details"
-		"esc: Quit   alt+d: Details"
+		"lower: Search   alt+d: Details   ctrl+c: Quit"
 
 	return term_color.Gray(s, false)
 }
