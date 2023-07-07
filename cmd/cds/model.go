@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/user"
 	"path/filepath"
 
 	"github.com/andriykrefer/cds/config"
@@ -30,7 +31,7 @@ type Model struct {
 	width     int
 	height    int
 	state     stateEnum
-	hasFit    bool
+	username  string
 }
 
 type Item struct {
@@ -40,6 +41,21 @@ type Item struct {
 }
 
 func (thiss *Model) Init() tea.Cmd {
+	path, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	currentUser, err := user.Current()
+	if err != nil {
+		panic(err.Error())
+	}
+	username := currentUser.Username
+
+	thiss.path = path
+	thiss.width = 80
+	thiss.height = 10
+	thiss.username = username
+	thiss.Ls()
 	return nil
 }
 
@@ -58,6 +74,9 @@ var (
 	keyPageDown = key.NewBinding(key.WithKeys("pgdown"))
 	keyHome     = key.NewBinding(key.WithKeys("home"))
 	keyEnd      = key.NewBinding(key.WithKeys("end"))
+	keyCopy     = key.NewBinding(key.WithKeys("C"))
+	keyCut      = key.NewBinding(key.WithKeys("alt+x"))
+	keyPaste    = key.NewBinding(key.WithKeys("alt+v"))
 )
 
 func (thiss *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -141,12 +160,24 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keySpace):
 		thiss.toggleSelection()
 		return thiss, nil
+
+	case key.Matches(msg, keyCopy):
+		thiss.toggleSelection()
+		return thiss, nil
+
+	case key.Matches(msg, keyCut):
+		thiss.toggleSelection()
+		return thiss, nil
+
+	case key.Matches(msg, keyPaste):
+		thiss.toggleSelection()
+		return thiss, nil
 	}
 	return thiss, nil
 }
 
 func (thiss *Model) View() string {
-	out := ""
+	listOut := ""
 	totalAbsRows := exp.TryFallback(func() int { return ((len(thiss.items) - 1) / thiss.cols) + 1 }, 0)
 	for ix, item := range thiss.items {
 		col := exp.TryFallback(func() int { return ix % thiss.cols }, 0)
@@ -160,28 +191,46 @@ func (thiss *Model) View() string {
 			isLastLine := row >= (thiss.rowOffset + thiss.rowsDisplayed())
 			willFit := row == (totalAbsRows - 1)
 			if isLastLine && !willFit {
-				out += lipgloss.NewStyle().
+				listOut += lipgloss.NewStyle().
 					Foreground(lipgloss.Color(config.FG_MORE)).
 					Render("\n--More--")
 				break
 			} else if relRow != 0 {
-				out += "\n"
+				listOut += "\n"
 			}
 		}
-		out += thiss.renderItem(item, thiss.cursorIx == ix)
+		listOut += thiss.renderItem(item, thiss.cursorIx == ix)
 	}
-	ret := "=== HEADER ===\n" + out
+
+	return thiss.renderListScreen(thiss.renderHeader(), listOut, renderFooter())
+}
+
+func (thiss *Model) renderListScreen(header, list, footer string) string {
+	ret := header + "\n" + list
 	ret = lipgloss.NewStyle().
 		Height(thiss.height - 3).
 		Render(ret)
-	ret += "\n" + renderFooter()
+	ret += "\n" + footer
 	return ret
+}
+
+func (thiss *Model) renderHeader() string {
+	return thiss.username + ": " + thiss.path
+	// return lipgloss.NewStyle().
+	// 	// Bold(true).
+	// 	// Underline(true).
+	// 	// Background(lipgloss.Color(config.BG_PATH)).
+	// 	Foreground(lipgloss.Color(config.FG_PATH)).
+	// 	Render(thiss.username+": "+thiss.path) + "\n"
 }
 
 func renderFooter() string {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(config.FG_DISCREET)).Render("" +
-		"space: Select    alt+c: Copy    alt+x: Cut    alt+v: Paste\n" +
-		"alpha: Search    alt+h: Help")
+		"space: Select   shift+c: Copy   alt+x: Cut      alt+v: Paste   del: Delete" +
+		"\n" +
+		"alt+h: Help     esc: Quit       lower: Search   alt+d: Details" +
+		"",
+	)
 }
 
 func (thiss *Model) Ls() {
