@@ -8,6 +8,8 @@ Some features:
 - Easy in-folder search (just start typing)
 - Should be easy to integrate with any shell (currently it only supports bash)
 
+![demo](https://github.com/andriykrefer/cdsurfer/assets/30701181/39df95b6-d80a-4de3-8b16-12684e9f574d)
+
 ## Install
 - Run
 ```bash
@@ -58,6 +60,7 @@ Below is a list of its "roadmap":
     - Move
     - Delete
     - Create folder
+
 - Open Editor when select a file
 - Create a config file for customizations
 - Finish detailed file view
