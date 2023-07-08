@@ -9,7 +9,7 @@ import (
 	"unicode"
 
 	"github.com/andriykrefer/cdsurfer/config"
-	"github.com/andriykrefer/cdsurfer/exp"
+	"github.com/andriykrefer/exp"
 	"github.com/andriykrefer/cdsurfer/term_color"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"

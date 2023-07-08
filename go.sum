@@ -1,3 +1,5 @@
+github.com/andriykrefer/exp v0.0.0-20230708005456-3b6ef4018085 h1:+ziY9xMFC+Trhl+PSWvSFmjG8tThflI1aL9Mo4f2esI=
+github.com/andriykrefer/exp v0.0.0-20230708005456-3b6ef4018085/go.mod h1:v1x0JRRNKl3U3uHR2QMPmaAQNbuLJsn01FN6AklH68I=
 github.com/aymanbagabas/go-osc52/v2 v2.0.1 h1:HwpRHbFMcZLEVr42D4p7XBqjyuxQH5SMiErDT4WkJ2k=
 github.com/aymanbagabas/go-osc52/v2 v2.0.1/go.mod h1:uYgXzlJ7ZpABp8OJ+exZzJJhRNQ2ASbcXHWsFqH8hp8=
 github.com/charmbracelet/bubbles v0.16.1 h1:6uzpAAaT9ZqKssntbvZMlksWHruQLNxg49H5WdeuYSY=

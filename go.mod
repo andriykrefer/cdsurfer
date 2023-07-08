@@ -3,6 +3,7 @@ module github.com/andriykrefer/cdsurfer
 go 1.18
 
 require (
+	github.com/andriykrefer/exp v0.0.0-20230708005456-3b6ef4018085
 	github.com/charmbracelet/bubbles v0.16.1
 	github.com/charmbracelet/bubbletea v0.24.2
 	github.com/charmbracelet/lipgloss v0.7.1
