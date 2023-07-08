@@ -45,9 +45,10 @@ type Model struct {
 }
 
 type Item struct {
-	name       string
-	fileInfo   os.FileInfo
-	isSelected bool
+	name           string
+	fileInfo       os.FileInfo
+	emphasisTextIx [2]int // Start and end indexes of emphasis text
+	isSelected     bool
 }
 
 func (thiss *Model) Init() tea.Cmd {
@@ -249,6 +250,8 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if unicode.IsLetter(msg.Runes[0]) && unicode.IsLower(msg.Runes[0]) {
 			thiss.searchInput += string(msg.Runes)
 			thiss.searchFilter(thiss.searchInput)
+			thiss.cursorIx = 0
+			thiss.rowOffset = 0
 			thiss.changeMode(modeSearch)
 		}
 		return thiss, nil
@@ -256,6 +259,8 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keyBack) && thiss.mode == modeSearch:
 		thiss.searchInput = thiss.searchInput[:len(thiss.searchInput)-1]
 		if thiss.searchInput == "" {
+			thiss.cursorIx = 0
+			thiss.rowOffset = 0
 			thiss.changeMode(modeList)
 			return thiss, nil
 		}
@@ -407,7 +412,7 @@ func sortItemsFoldersFirst(items []Item) []Item {
 	return ret
 }
 
-func addColorByFileType(text string, item Item, isFocused bool) string {
+func addColorByFileType(text string, item Item, isFocused bool, marks []int) string {
 	isExecutable := func(item Item) bool {
 		if item.fileInfo == nil {
 			return false
@@ -430,24 +435,43 @@ func addColorByFileType(text string, item Item, isFocused bool) string {
 	} else if item.isSelected {
 		text = term_color.Orange(text, true)
 	} else if item.fileInfo == nil {
-		text = term_color.Blue(text, false)
+		text = addTextEmphasisAndBlue(text, marks)
 	} else if item.fileInfo.IsDir() {
-		text = term_color.Blue(text, false)
+		text = addTextEmphasisAndBlue(text, marks)
 	} else if isSymlink(item) {
-		// text = term_color.Yellow(text)
-		// style = style.UnsetBold()
-		// style = style.
-		// Bold(true).
-		// Foreground(lipgloss.Color(config.FG_SYMLINK))
+		//
 	} else if isExecutable(item) {
-		text = term_color.Green(text, false)
+		text = addTextEmphasisAndGreen(text, marks)
+	} else {
+		text = addTextEmphasisAndNothing(text, marks)
 	}
-
 	return text
 }
+
+func addTextEmphasisAndBlue(text string, marks []int) string {
+	s1 := text[0:marks[0]]
+	s2 := text[marks[0]:marks[1]]
+	s3 := text[marks[1]:]
+	return term_color.Blue(s1, false) + term_color.Emphasis(s2) + term_color.Blue(s3, false)
+}
+
+func addTextEmphasisAndNothing(text string, marks []int) string {
+	s1 := text[0:marks[0]]
+	s2 := text[marks[0]:marks[1]]
+	s3 := text[marks[1]:]
+	return s1 + term_color.Emphasis(s2) + s3
+}
+
+func addTextEmphasisAndGreen(text string, marks []int) string {
+	s1 := text[0:marks[0]]
+	s2 := text[marks[0]:marks[1]]
+	s3 := text[marks[1]:]
+	return term_color.Green(s1, false) + term_color.Emphasis(s2) + term_color.Green(s3, false)
+}
+
 func (thiss *Model) renderItem(item Item, isFocused bool) string {
 	style := lipgloss.NewStyle().Width(thiss.colSize)
-	return style.Render(addColorByFileType(item.name, item, isFocused))
+	return style.Render(addColorByFileType(item.name, item, isFocused, item.emphasisTextIx[:]))
 }
 
 func (thiss *Model) renderItemWithDetails(item Item, isFocused bool) string {
@@ -455,7 +479,7 @@ func (thiss *Model) renderItemWithDetails(item Item, isFocused bool) string {
 
 	// details := "drwxrwxr-x 5 andriy andriy 4,0K jul  7 03:29 "
 	details := item.fileInfo.Mode().String()
-	return term_color.Gray(details, false) + "    " + style.Render(addColorByFileType(item.name, item, isFocused))
+	return term_color.Gray(details, false) + "    " + style.Render(addColorByFileType(item.name, item, isFocused, item.emphasisTextIx[:]))
 }
 
 func (thiss *Model) changeMode(mode modeEnum) {
@@ -479,9 +503,13 @@ func (thiss *Model) searchFilter(input string) {
 	for _, v := range thiss.dirItems {
 		var a = strings.ToLower(input)
 		var b = strings.ToLower(v.name)
-		if strings.Contains(b, a) {
+		foundIx := strings.Index(b, a)
+		if foundIx > -1 {
+			v.emphasisTextIx[0] = foundIx
+			v.emphasisTextIx[1] = foundIx + len(a)
 			filtered = append(filtered, v)
 		}
+		strings.Index(b, a)
 	}
 	thiss.filteredItems = filtered
 }

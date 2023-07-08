@@ -10,6 +10,10 @@ func Violet(s string, isBg bool) string {
 	return color.C256(93, isBg).Sprint(s)
 }
 
+func Emphasis(s string) string {
+	return color.C256(93, false).Sprint(s)
+}
+
 func Orange(s string, isBg bool) string {
 	return color.C256(208, isBg).Sprint(s)
 }
