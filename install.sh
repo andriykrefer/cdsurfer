@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
 shell_cfg_file="$HOME/.bashrc"
-lastes_release_file=https://github.com/andriykrefer/cdsurfer/releases/latest/download/cd-surfer_linux_amd64
+latest_release_file=https://github.com/andriykrefer/cdsurfer/releases/latest/download/cd-surfer_linux_amd64
 fname="cd-surfer"
 
 echo "Downloading latest release..."
 sudo rm -rf /tmp/$fname
-wget $lastes_release_file -O /tmp/$fname &>2 /dev/null
+wget -q -O /tmp/$fname $latest_release_file -O /tmp/$fname
 
 echo "Installing in /bin/${fname}"
 sudo chmod a+x /tmp/$fname
