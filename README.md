@@ -30,7 +30,7 @@ function s {
 Run the command `s`
 
 ### Keybinds
-- Arrow keys and <Enter> to navigate
+- Arrow keys and <Enter>/<Tab> to navigate
 - Alt+Backspace to go to the parent folder
 - / (Slash) to manually input the desired path
 - Just start typing (a-z, lowercase) to search inside folder. The search is case-insensitive.

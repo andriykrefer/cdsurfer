@@ -81,6 +81,7 @@ var (
 	keyLeft          = key.NewBinding(key.WithKeys("left"))
 	keyRight         = key.NewBinding(key.WithKeys("right"))
 	keyEnter         = key.NewBinding(key.WithKeys("enter"))
+	keyTab           = key.NewBinding(key.WithKeys("tab"))
 	keySpace         = key.NewBinding(key.WithKeys(" "))
 	keyBack          = key.NewBinding(key.WithKeys("backspace"))
 	keyParent        = key.NewBinding(key.WithKeys("alt+backspace"))
@@ -173,7 +174,7 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		thiss.rowOffset = thiss.cursorRowIx()
 		return thiss, nil
 
-	case key.Matches(msg, keyEnter) && (thiss.mode == modeList || thiss.mode == modeSearch):
+	case key.Matches(msg, keyEnter, keyTab) && (thiss.mode == modeList || thiss.mode == modeSearch):
 		shouldExit := thiss.cursorEnter()
 		thiss.changeMode(modeList)
 		if shouldExit {
