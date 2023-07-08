@@ -31,6 +31,10 @@ func Gray(s string, isBg bool) string {
 	return color.C256(245, isBg).Sprint(s)
 }
 
+func Red(s string, isBg bool) string {
+	return color.C256(1, isBg).Sprint(s)
+}
+
 func ClearScreen() string {
 	// Clear screen + cursor home
 	return "\033[2J" + "\033[H"
