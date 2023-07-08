@@ -257,7 +257,10 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		thiss.searchInput = thiss.searchInput[:len(thiss.searchInput)-1]
 		if thiss.searchInput == "" {
 			thiss.changeMode(modeList)
+			return thiss, nil
 		}
+		thiss.searchFilter(thiss.searchInput)
+		thiss.changeMode(modeSearch)
 		return thiss, nil
 	}
 	return thiss, nil
