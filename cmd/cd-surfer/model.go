@@ -6,6 +6,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/andriykrefer/cdsurfer/config"
 	"github.com/andriykrefer/cdsurfer/exp"
@@ -18,13 +19,15 @@ import (
 type modeEnum int
 
 const (
-	modeList   modeEnum = 0
-	modeSearch modeEnum = 1
+	modeList      modeEnum = 0
+	modeSearch    modeEnum = 1
+	modeEnterPath modeEnum = 2
 )
 
 type Model struct {
 	// state
 	path          string
+	inputPath     string
 	cursorIx      int
 	rowOffset     int
 	colSize       int
@@ -89,6 +92,7 @@ var (
 	keyPaste         = key.NewBinding(key.WithKeys("alt+v"))
 	keyDetails       = key.NewBinding(key.WithKeys("alt+d"))
 	keyClear         = key.NewBinding(key.WithKeys("ctrl+u"))
+	keySlash         = key.NewBinding(key.WithKeys("/"))
 )
 
 func (thiss *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -167,7 +171,7 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		thiss.rowOffset = thiss.cursorRowIx()
 		return thiss, nil
 
-	case key.Matches(msg, keyEnter):
+	case key.Matches(msg, keyEnter) && (thiss.mode == modeList || thiss.mode == modeSearch):
 		thiss.cursorEnter()
 		thiss.changeMode(modeList)
 		return thiss, nil
@@ -176,7 +180,7 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		thiss.goBack()
 		return thiss, nil
 
-	case key.Matches(msg, keySpace):
+	case key.Matches(msg, keySpace) && (thiss.mode == modeList || thiss.mode == modeSearch):
 		// TODO: Selections
 		// thiss.toggleSelection()
 		return thiss, nil
@@ -201,10 +205,45 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		thiss.changeMode(modeList)
 		return thiss, nil
 
+	case key.Matches(msg, keySlash) && thiss.mode == modeList: // Change to modeEnterPath
+		thiss.changeMode(modeEnterPath)
+		return thiss, nil
+
+	case key.Matches(msg, keyEsc, keyClear) && thiss.mode == modeEnterPath:
+		thiss.inputPath = ""
+		thiss.changeMode(modeList)
+		return thiss, nil
+
+	case msg.Type == tea.KeyRunes && thiss.mode == modeEnterPath:
+		thiss.inputPath += string(msg.Runes)
+		return thiss, nil
+
+	case key.Matches(msg, keySpace) && thiss.mode == modeEnterPath: // (a Bug? cannot detect space)
+		thiss.inputPath += string(" ")
+		return thiss, nil
+
+	case key.Matches(msg, keyBack) && thiss.mode == modeEnterPath:
+		thiss.inputPath = thiss.inputPath[:len(thiss.inputPath)-1]
+		if thiss.inputPath == "" {
+			thiss.changeMode(modeList)
+		}
+		return thiss, nil
+
+	case key.Matches(msg, keyEnter) && thiss.mode == modeEnterPath:
+		if thiss.isPathOk(thiss.inputPath) {
+			thiss.path = filepath.Clean(thiss.inputPath)
+			thiss.Ls()
+			thiss.changeMode(modeList)
+		}
+		return thiss, nil
+
 	case msg.Type == tea.KeyRunes: // Change to modeSearch
-		thiss.searchInput += string(msg.Runes)
-		thiss.searchFilter(thiss.searchInput)
-		thiss.changeMode(modeSearch)
+		if unicode.IsLetter(msg.Runes[0]) && unicode.IsLower(msg.Runes[0]) {
+			thiss.searchInput += string(msg.Runes)
+			thiss.searchFilter(thiss.searchInput)
+			thiss.changeMode(modeSearch)
+		}
+		return thiss, nil
 
 	case key.Matches(msg, keyBack) && thiss.mode == modeSearch:
 		thiss.searchInput = thiss.searchInput[:len(thiss.searchInput)-1]
@@ -219,6 +258,8 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (thiss *Model) View() string {
 	if thiss.mode == modeList || thiss.mode == modeSearch {
 		return thiss.renderList()
+	} else if thiss.mode == modeEnterPath {
+		return thiss.renderListScreen(thiss.renderHeader(), "", "")
 	}
 	return ""
 }
@@ -262,9 +303,25 @@ func (thiss *Model) renderListScreen(header, list, footer string) string {
 }
 
 func (thiss *Model) renderHeader() string {
-	o := thiss.username + ": " + thiss.path
-	if thiss.mode == modeSearch {
-		o = strings.TrimSuffix(o, "/") + "/" + term_color.Violet(thiss.searchInput, false)
+	o := thiss.username + ": "
+	if thiss.mode == modeList {
+		o += thiss.path
+	} else if thiss.mode == modeEnterPath {
+		if thiss.isPathOk(thiss.inputPath) {
+			o += term_color.Green(thiss.inputPath, false) +
+				"\n" +
+				term_color.Gray("Manual path input mode. Please type the desired path.", false) +
+				"\n" +
+				term_color.Gray("Press <enter> to enter path", false)
+		} else {
+			o += term_color.Red(thiss.inputPath, false) +
+				"\n" +
+				term_color.Gray("Invalid path", false) +
+				"\n" +
+				term_color.Gray("Fix it or press <esc> to exit path input mode", false)
+		}
+	} else if thiss.mode == modeSearch {
+		o = strings.TrimSuffix(o+thiss.path, "/") + "/" + term_color.Violet(thiss.searchInput, false)
 	}
 	return o
 }
@@ -274,7 +331,7 @@ func renderFooter() string {
 		// "space: Select   shift+c: Copy   alt+x: Cut      alt+v: Paste   del: Delete" +
 		// "\n" +
 		// "alt+h: Help     esc: Quit       lower: Search   alt+d: Details"
-		"lower: Search   alt+d: Details   ctrl+c: Quit"
+		"[a-z]: Search   alt+d: Details   /:Manual path input   ctrl+c: Quit"
 
 	return term_color.Gray(s, false)
 }
@@ -400,6 +457,9 @@ func (thiss *Model) changeMode(mode modeEnum) {
 		thiss.mode = modeList
 		thiss.items = thiss.dirItems
 		thiss.calculateColsAndRows()
+	} else if mode == modeEnterPath {
+		thiss.inputPath = "/"
+		thiss.mode = modeEnterPath
 	}
 }
 
@@ -413,6 +473,14 @@ func (thiss *Model) searchFilter(input string) {
 		}
 	}
 	thiss.filteredItems = filtered
+}
+
+func (thiss *Model) isPathOk(path string) bool {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return fileInfo.IsDir()
 }
 
 func (thiss *Model) calculateColsAndRows() {
