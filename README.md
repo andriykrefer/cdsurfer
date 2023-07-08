@@ -35,6 +35,7 @@ Run the command `s`
 - Alt+q to quit WITHOUT changing directory on the parent shell
 - Ctrt+c or Esc to quit CHANGING directory on the parent shell
 - PageUp / PageDown / Home / End working
+- ~ to go to home directory
 - Ctrl+u to clear the input (same as bash)
 
 ## How it works

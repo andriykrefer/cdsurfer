@@ -9,8 +9,8 @@ import (
 	"unicode"
 
 	"github.com/andriykrefer/cdsurfer/config"
-	"github.com/andriykrefer/exp"
 	"github.com/andriykrefer/cdsurfer/term_color"
+	"github.com/andriykrefer/exp"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -93,6 +93,7 @@ var (
 	keyDetails       = key.NewBinding(key.WithKeys("alt+d"))
 	keyClear         = key.NewBinding(key.WithKeys("ctrl+u"))
 	keySlash         = key.NewBinding(key.WithKeys("/"))
+	keyTilde         = key.NewBinding(key.WithKeys("~"))
 )
 
 func (thiss *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -174,6 +175,13 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keyEnter) && (thiss.mode == modeList || thiss.mode == modeSearch):
 		thiss.cursorEnter()
 		thiss.changeMode(modeList)
+		return thiss, nil
+
+	case key.Matches(msg, keyTilde) && thiss.mode == modeList:
+		homePath, _ := os.UserHomeDir()
+		thiss.path = homePath
+		thiss.Ls()
+		thiss.calculateColsAndRows()
 		return thiss, nil
 
 	case key.Matches(msg, keyParent) && thiss.mode == modeList:
