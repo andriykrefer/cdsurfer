@@ -174,8 +174,13 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return thiss, nil
 
 	case key.Matches(msg, keyEnter) && (thiss.mode == modeList || thiss.mode == modeSearch):
-		thiss.cursorEnter()
+		shouldExit := thiss.cursorEnter()
 		thiss.changeMode(modeList)
+		if shouldExit {
+			fmt.Fprintf(os.Stderr, "\n")
+			fmt.Println(`cd "` + thiss.path + `"`)
+			return thiss, tea.Quit
+		}
 		return thiss, nil
 
 	case key.Matches(msg, keyTilde) && thiss.mode == modeList:
@@ -242,6 +247,8 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if thiss.isPathOk(thiss.inputPath) {
 			thiss.path = filepath.Clean(thiss.inputPath)
 			thiss.Ls()
+			thiss.rowOffset = 0
+			thiss.cursorIx = 0
 			thiss.changeMode(modeList)
 		}
 		return thiss, nil
@@ -357,21 +364,33 @@ func (thiss *Model) Ls() {
 	if err != nil {
 		panic(err)
 	}
-	addPreviousDir := func() []Item {
+	addRelDirs := func() []Item {
+		ret := []Item{}
+		oneDot := Item{
+			name:     "./",
+			fileInfo: nil,
+		}
+		if config.ADD_ONE_DOT_FOLDER {
+			ret = append(ret, oneDot)
+		}
 		if filepath.Clean(thiss.path) == "/" {
-			return []Item{}
+			return ret
 		}
-		previousDirStat, err := os.Stat(filepath.Clean(filepath.Join(thiss.path, "..")))
-		if err != nil {
-			panic(err)
+		if config.ADD_TWO_DOT_FOLDER {
+			previousDirStat, err := os.Stat(filepath.Clean(filepath.Join(thiss.path, "..")))
+			if err != nil {
+				panic(err)
+			}
+			ret = append(ret, Item{
+				name:     "../",
+				fileInfo: previousDirStat,
+			})
 		}
-		return []Item{{
-			name:     "../",
-			fileInfo: previousDirStat,
-		}}
+
+		return ret
 	}
 
-	thiss.items = addPreviousDir()
+	thiss.items = addRelDirs()
 	for _, f := range files {
 		info, _ := f.Info()
 		name := info.Name()
@@ -581,8 +600,14 @@ func (thiss *Model) addRowOffset(val int) {
 	thiss.rowOffset = minMax(thiss.rowOffset+val, 0, thiss.rows-1)
 }
 
-func (thiss *Model) cursorEnter() {
+func (thiss *Model) cursorEnter() (shouldExit bool) {
 	curItem := thiss.CurrentItem()
+
+	if curItem.name == "./" {
+		shouldExit = true
+		return
+	}
+
 	if curItem.fileInfo != nil && !curItem.fileInfo.IsDir() {
 		return
 	}
@@ -594,6 +619,7 @@ func (thiss *Model) cursorEnter() {
 	thiss.rowOffset = 0
 	thiss.Ls()
 	thiss.calculateColsAndRows()
+	return
 }
 
 func (thiss *Model) goBack() {
