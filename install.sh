@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
+set -e
 
 shell_cfg_file="$HOME/.bashrc"
 latest_release_file=https://github.com/andriykrefer/cdsurfer/releases/latest/download/cd-surfer_linux_amd64
 fname="cd-surfer"
 
 echo "Downloading latest release..."
-sudo rm -rf /tmp/$fname
+rm -rf /tmp/$fname
 wget -q -O /tmp/$fname $latest_release_file -O /tmp/$fname
 
 echo "Installing in /bin/${fname}"
-sudo chmod a+x /tmp/$fname
+sudo chmod 755 /tmp/$fname
 sudo mv /tmp/$fname /bin/
 
 # Make a backup .bashrc
