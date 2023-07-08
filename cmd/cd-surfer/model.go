@@ -215,11 +215,7 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		thiss.toggleDetails()
 		return thiss, nil
 
-	case key.Matches(msg, keyEsc, keyClear) && thiss.mode == modeSearch:
-		thiss.changeMode(modeList)
-		return thiss, nil
-
-	case key.Matches(msg, keySlash) && thiss.mode == modeList: // Change to modeEnterPath
+	case key.Matches(msg, keySlash) && thiss.mode == modeList: // Change to _modeEnterPath
 		thiss.changeMode(modeEnterPath)
 		return thiss, nil
 
@@ -253,7 +249,7 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return thiss, nil
 
-	case msg.Type == tea.KeyRunes: // Change to modeSearch
+	case msg.Type == tea.KeyRunes: // Change to _modeSearch
 		if unicode.IsLetter(msg.Runes[0]) && unicode.IsLower(msg.Runes[0]) {
 			thiss.searchInput += string(msg.Runes)
 			thiss.searchFilter(thiss.searchInput)
@@ -265,14 +261,20 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, keyBack) && thiss.mode == modeSearch:
 		thiss.searchInput = thiss.searchInput[:len(thiss.searchInput)-1]
+		thiss.cursorIx = 0
+		thiss.rowOffset = 0
 		if thiss.searchInput == "" {
-			thiss.cursorIx = 0
-			thiss.rowOffset = 0
 			thiss.changeMode(modeList)
 			return thiss, nil
 		}
 		thiss.searchFilter(thiss.searchInput)
 		thiss.changeMode(modeSearch)
+		return thiss, nil
+
+	case key.Matches(msg, keyEsc, keyClear) && thiss.mode == modeSearch:
+		thiss.cursorIx = 0
+		thiss.rowOffset = 0
+		thiss.changeMode(modeList)
 		return thiss, nil
 	}
 	return thiss, nil
