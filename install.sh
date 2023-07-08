@@ -19,7 +19,9 @@ cp ${shell_cfg_file} "$shell_cfg_file.bk"
 sed '/# cd-surfer/d' "$shell_cfg_file.bk" > ${shell_cfg_file}
 
 # Add config
-printf '\nalias s="eval \$(/bin/cd-surfer)" # cd-surfer\n' >> ${shell_cfg_file}
+printf 'function s {                       # cd-surfer\n' >> ${shell_cfg_file}
+printf '  eval "$(/bin/cd-surfer "$@")"    # cd-surfer\n' >> ${shell_cfg_file}
+printf '}                                  # cd-surfer\n' >> ${shell_cfg_file}
 
 # Reload the current shell
 source $shell_cfg_file

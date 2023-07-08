@@ -15,12 +15,14 @@ wget -q -O - https://raw.githubusercontent.com/andriykrefer/cdsurfer/master/inst
 ```
 - Restart the terminal to apply the config
 
-#### Manual Install
+#### Alternative Manual Install
 - Download a pre-build binary in the releases section or compile it yourself with with `cd cmd/cd-surfer/ && go build .`
 - Move to /bin/cd-surfer with 755 permission
-- Add the following line to your `~/.bashrc`:
+- Add the following lines to your `~/.bashrc`:
 ```bash
-alias s="eval \$(/bin/cd-surfer)" # cd-surfer
+function s {
+  eval "$(/bin/cd-surfer "$@")"
+}
 ```
 - Restart the terminal to apply
 
@@ -39,7 +41,7 @@ Run the command `s`
 - Ctrl+u to clear the input (same as bash)
 
 ## How it works
-Unfortunately, there is easy way to directly change directories of the parent shell of a spawned process. The way `cd-surfer` works is outputting the `cd` command as a string, so the parent shell can evalute it and change the directory.
+Unfortunately, there is easy way to directly change directories of the parent shell of a spawned process. The way `cd-surfer` works is outputting the `cd` command as a string, so the parent shell can evaluate it and change the directory.
 
 ## TODO features/bugs
 Despite that it is still lacking a lot o features I want in the, for a weekend projectec it is good enought to use in my daily routine. Besides, I do not want to make it a bloated software, so I will keep it simple, focusing on its core features.
