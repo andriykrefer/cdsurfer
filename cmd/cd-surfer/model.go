@@ -6,7 +6,9 @@ import (
 	"os/user"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
+	"syscall"
 	"unicode"
 
 	"github.com/andriykrefer/cdsurfer/config"
@@ -15,6 +17,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/dustin/go-humanize"
 )
 
 type modeEnum int
@@ -51,6 +54,11 @@ type Item struct {
 	fileInfo       os.FileInfo
 	emphasisTextIx [2]int // Start and end indexes of emphasis text
 	isSelected     bool
+	details        ItemDetails
+}
+
+type ItemDetails struct {
+	Perm, Username, Group, Size, Date string
 }
 
 func (thiss *Model) Init() tea.Cmd {
@@ -333,7 +341,7 @@ func (thiss *Model) renderList() string {
 			}
 		}
 		if thiss.showDetails {
-			listOut += thiss.renderItemWithDetails(item, thiss.cursorIx == ix)
+			listOut += thiss.renderItemWithDetails(item, thiss.items, thiss.cursorIx == ix)
 		} else {
 			listOut += thiss.renderItem(item, thiss.cursorIx == ix)
 		}
@@ -404,9 +412,17 @@ func (thiss *Model) Ls() {
 			if err != nil {
 				panic(err)
 			}
+			var perm, username, group, size, date string = getDetails(previousDirStat)
 			ret = append(ret, Item{
 				name:     "../",
 				fileInfo: previousDirStat,
+				details: ItemDetails{
+					Perm:     perm,
+					Username: username,
+					Group:    group,
+					Size:     size,
+					Date:     date,
+				},
 			})
 		}
 
@@ -420,9 +436,17 @@ func (thiss *Model) Ls() {
 		if info.IsDir() {
 			name += "/"
 		}
+		var perm, username, group, size, date string = getDetails(info)
 		thiss.items = append(thiss.items, Item{
 			name:     name,
 			fileInfo: info,
+			details: ItemDetails{
+				Perm:     perm,
+				Username: username,
+				Group:    group,
+				Size:     size,
+				Date:     date,
+			},
 		})
 	}
 
@@ -516,12 +540,48 @@ func (thiss *Model) renderItem(item Item, isFocused bool) string {
 	return style.Render(addColorByFileType(item.name, item, isFocused, item.emphasisTextIx[:]))
 }
 
-func (thiss *Model) renderItemWithDetails(item Item, isFocused bool) string {
-	style := lipgloss.NewStyle().Width(thiss.colSize)
+func getDetails(fileInfo os.FileInfo) (perm, username, group, size, date string) {
+	if fileInfo == nil {
+		return
+	}
+	// perm
+	perm = fileInfo.Mode().String()
+	// User
+	var fsys = fileInfo.Sys()
+	var uid = fsys.(*syscall.Stat_t).Uid
+	var us, _ = user.LookupId(strconv.Itoa(int(uid)))
+	username = us.Username
+	// Group
+	var gid = fsys.(*syscall.Stat_t).Gid
+	var gr, _ = user.LookupGroupId(strconv.Itoa(int(gid)))
+	group = gr.Name
+	// Size
+	size = humanize.Bytes(uint64(fileInfo.Size()))
+	// date
+	date = fileInfo.ModTime().Format("02 Jan 06 15:04") // time.RFC822 minus timezone
+	return
+}
 
-	// details := "drwxrwxr-x 5 andriy andriy 4,0K jul  7 03:29 "
-	details := item.fileInfo.Mode().String()
-	return term_color.Gray(details, false) + "    " + style.Render(addColorByFileType(item.name, item, isFocused, item.emphasisTextIx[:]))
+func getDetailsSizes(all []Item) (permSz, userSz, groupSz, sizeSz, dateSz int) {
+	for _, it := range all {
+		permSz = max(permSz, len(it.details.Perm))
+		userSz = max(userSz, len(it.details.Username))
+		groupSz = max(groupSz, len(it.details.Group))
+		sizeSz = max(sizeSz, len(it.details.Size))
+		dateSz = max(dateSz, len(it.details.Date))
+	}
+	return
+}
+
+func (thiss *Model) renderItemWithDetails(item Item, all []Item, isFocused bool) string {
+	sep := strings.Repeat(" ", config.DETAILS_SEPARATOR_SZ)
+	var permSz, userSz, groupSz, sizeSz, dateSz = getDetailsSizes(all)
+	var details = term_color.Width(item.details.Perm, permSz) + sep +
+		term_color.Width(item.details.Username, userSz) + sep +
+		term_color.Width(item.details.Group, groupSz) + sep +
+		term_color.Width(item.details.Size, sizeSz) + sep +
+		term_color.Width(item.details.Date, dateSz) + sep
+	return term_color.Gray(details, false) + addColorByFileType(item.name, item, isFocused, item.emphasisTextIx[:])
 }
 
 func (thiss *Model) changeMode(mode modeEnum) {

@@ -54,17 +54,18 @@ Below is a list of its "roadmap":
 - ~~Basic functions (cd and ls replacement)~~ ✔
 - ~~Search~~ ✔
 - ~~Manual path input~~ ✔
+- ~~Finish detailed file view~~ ✔
 - Better README.md
 - Add help/info and tips in the software
 - File operations
     - Copy
     - Move
     - Delete
+    - Rename
     - Create folder
 
 - Open Editor when select a file
 - Create a config file for customizations
-- Finish detailed file view
 - Handle Symlinks
 - Easy permissions editor
 - Handle errors gracefully. For instance when a user tries to access a folder he does not have permissions
