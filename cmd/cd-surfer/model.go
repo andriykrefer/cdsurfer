@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"sort"
 	"strings"
 	"unicode"
 
@@ -533,6 +534,18 @@ func (thiss *Model) searchFilter(input string) {
 		}
 		strings.Index(b, a)
 	}
+
+	// Rank names that starts with input first
+	sort.Slice(filtered, func(i, j int) bool {
+		rank := func(it Item) int {
+			if strings.HasPrefix(it.name, input) {
+				return -1
+			}
+			return 0
+		}
+		return rank(filtered[i]) < rank(filtered[j])
+	})
+
 	thiss.filteredItems = filtered
 }
 
