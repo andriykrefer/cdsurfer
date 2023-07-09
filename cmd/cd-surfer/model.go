@@ -12,7 +12,7 @@ import (
 	"unicode"
 
 	"github.com/andriykrefer/cdsurfer/config"
-	"github.com/andriykrefer/cdsurfer/term_color"
+	"github.com/andriykrefer/cdsurfer/term"
 	"github.com/andriykrefer/exp"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -334,7 +334,7 @@ func (thiss *Model) renderList() string {
 			isLastLine := row >= (thiss.rowOffset + thiss.rowsDisplayed())
 			willFit := row == (totalAbsRows - 1)
 			if isLastLine && !willFit {
-				listOut += "\n" + term_color.Violet("--More--", false)
+				listOut += "\n" + term.Violet("--More--", false)
 				break
 			} else if relRow != 0 {
 				listOut += "\n"
@@ -362,20 +362,20 @@ func (thiss *Model) renderHeader() string {
 		o += thiss.path
 	} else if thiss.mode == modeEnterPath {
 		if thiss.isPathOk(thiss.inputPath) {
-			o += term_color.Green(thiss.inputPath, false) +
+			o += term.Green(thiss.inputPath, false) +
 				"\n" +
-				term_color.Gray("Manual path input mode. Please type the desired path.", false) +
+				term.Gray("Manual path input mode. Please type the desired path.", false) +
 				"\n" +
-				term_color.Gray("Press <enter> to enter path", false)
+				term.Gray("Press <enter> to enter path", false)
 		} else {
-			o += term_color.Red(thiss.inputPath, false) +
+			o += term.Red(thiss.inputPath, false) +
 				"\n" +
-				term_color.Gray("Invalid path", false) +
+				term.Gray("Invalid path", false) +
 				"\n" +
-				term_color.Gray("Fix it or press <esc> to exit path input mode", false)
+				term.Gray("Fix it or press <esc> to exit path input mode", false)
 		}
 	} else if thiss.mode == modeSearch {
-		o = strings.TrimSuffix(o+thiss.path, "/") + "/" + term_color.Violet(thiss.searchInput, false)
+		o = strings.TrimSuffix(o+thiss.path, "/") + "/" + term.Violet(thiss.searchInput, false)
 	}
 	return o
 }
@@ -387,7 +387,7 @@ func renderFooter() string {
 		// "alt+h: Help     esc: Quit       lower: Search   alt+d: Details"
 		"[a-z]: Search   alt+d: Details   /:Manual path input   ctrl+c: Quit"
 
-	return term_color.Gray(s, false)
+	return term.Gray(s, false)
 }
 
 func (thiss *Model) Ls() {
@@ -497,9 +497,9 @@ func addColorByFileType(text string, item Item, isFocused bool, marks []int) str
 	}
 
 	if isFocused {
-		text = term_color.Violet(text, true)
+		text = term.Violet(text, true)
 	} else if item.isSelected {
-		text = term_color.Orange(text, true)
+		text = term.Orange(text, true)
 	} else if item.fileInfo == nil {
 		text = addTextEmphasisAndBlue(text, marks)
 	} else if item.fileInfo.IsDir() {
@@ -518,21 +518,21 @@ func addTextEmphasisAndBlue(text string, marks []int) string {
 	s1 := text[0:marks[0]]
 	s2 := text[marks[0]:marks[1]]
 	s3 := text[marks[1]:]
-	return term_color.Blue(s1, false) + term_color.Emphasis(s2) + term_color.Blue(s3, false)
+	return term.Blue(s1, false) + term.Emphasis(s2) + term.Blue(s3, false)
 }
 
 func addTextEmphasisAndNothing(text string, marks []int) string {
 	s1 := text[0:marks[0]]
 	s2 := text[marks[0]:marks[1]]
 	s3 := text[marks[1]:]
-	return s1 + term_color.Emphasis(s2) + s3
+	return s1 + term.Emphasis(s2) + s3
 }
 
 func addTextEmphasisAndGreen(text string, marks []int) string {
 	s1 := text[0:marks[0]]
 	s2 := text[marks[0]:marks[1]]
 	s3 := text[marks[1]:]
-	return term_color.Green(s1, false) + term_color.Emphasis(s2) + term_color.Green(s3, false)
+	return term.Green(s1, false) + term.Emphasis(s2) + term.Green(s3, false)
 }
 
 func (thiss *Model) renderItem(item Item, isFocused bool) string {
@@ -576,12 +576,12 @@ func getDetailsSizes(all []Item) (permSz, userSz, groupSz, sizeSz, dateSz int) {
 func (thiss *Model) renderItemWithDetails(item Item, all []Item, isFocused bool) string {
 	sep := strings.Repeat(" ", config.DETAILS_SEPARATOR_SZ)
 	var permSz, userSz, groupSz, sizeSz, dateSz = getDetailsSizes(all)
-	var details = term_color.Width(item.details.Perm, permSz) + sep +
-		term_color.Width(item.details.Username, userSz) + sep +
-		term_color.Width(item.details.Group, groupSz) + sep +
-		term_color.Width(item.details.Size, sizeSz) + sep +
-		term_color.Width(item.details.Date, dateSz) + sep
-	return term_color.Gray(details, false) + addColorByFileType(item.name, item, isFocused, item.emphasisTextIx[:])
+	var details = term.Width(item.details.Perm, permSz) + sep +
+		term.Width(item.details.Username, userSz) + sep +
+		term.Width(item.details.Group, groupSz) + sep +
+		term.Width(item.details.Size, sizeSz) + sep +
+		term.Width(item.details.Date, dateSz) + sep
+	return term.Gray(details, false) + addColorByFileType(item.name, item, isFocused, item.emphasisTextIx[:])
 }
 
 func (thiss *Model) changeMode(mode modeEnum) {

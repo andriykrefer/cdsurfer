@@ -1,4 +1,4 @@
-package term_color
+package term
 
 import (
 	"github.com/gookit/color"
