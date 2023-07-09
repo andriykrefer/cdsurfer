@@ -28,6 +28,7 @@ const (
 type Model struct {
 	// state
 	path          string
+	previousPath  string
 	inputPath     string
 	cursorIx      int
 	rowOffset     int
@@ -64,6 +65,7 @@ func (thiss *Model) Init() tea.Cmd {
 	username := currentUser.Username
 
 	thiss.path = path
+	thiss.previousPath = path
 	thiss.width = 80
 	thiss.height = 10
 	thiss.username = username
@@ -84,7 +86,7 @@ var (
 	keyEnter         = key.NewBinding(key.WithKeys("enter"))
 	keyTab           = key.NewBinding(key.WithKeys("tab"))
 	keySpace         = key.NewBinding(key.WithKeys(" "))
-	keyBack          = key.NewBinding(key.WithKeys("backspace"))
+	keyBackspace     = key.NewBinding(key.WithKeys("backspace"))
 	keyParent        = key.NewBinding(key.WithKeys("alt+backspace"))
 	keyPageUp        = key.NewBinding(key.WithKeys("pgup"))
 	keyPageDown      = key.NewBinding(key.WithKeys("pgdown"))
@@ -97,6 +99,7 @@ var (
 	keyClear         = key.NewBinding(key.WithKeys("ctrl+u"))
 	keySlash         = key.NewBinding(key.WithKeys("/"))
 	keyTilde         = key.NewBinding(key.WithKeys("~"))
+	keyPrev          = key.NewBinding(key.WithKeys("-"))
 )
 
 func (thiss *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -185,20 +188,30 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return thiss, nil
 
-	case key.Matches(msg, keySlash) && thiss.mode == modeSearch: // Slash enters directory, on searchMode
-		thiss.cursorEnter()
-		thiss.changeMode(modeList)
-		return thiss, nil
+	// case key.Matches(msg, keySlash) && thiss.mode == modeSearch: // Slash enters directory, on searchMode
+	// 	thiss.cursorEnter()
+	// 	thiss.changeMode(modeList)
+	// 	return thiss, nil
 
 	case key.Matches(msg, keyTilde) && thiss.mode == modeList:
 		homePath, _ := os.UserHomeDir()
+		thiss.previousPath = thiss.path
 		thiss.path = homePath
 		thiss.Ls()
 		thiss.calculateColsAndRows()
 		return thiss, nil
 
+	case key.Matches(msg, keyPrev) && thiss.mode == modeList: // Go to previous path
+		var swap = thiss.path
+		thiss.path = thiss.previousPath
+		thiss.previousPath = swap
+		thiss.Ls()
+		thiss.calculateColsAndRows()
+		thiss.setOffsetToMiddleScreen()
+		return thiss, nil
+
 	case key.Matches(msg, keyParent) && thiss.mode == modeList:
-		thiss.goBack()
+		thiss.goParent()
 		return thiss, nil
 
 	case key.Matches(msg, keySpace) && (thiss.mode == modeList || thiss.mode == modeSearch):
@@ -239,7 +252,7 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		thiss.inputPath += string(" ")
 		return thiss, nil
 
-	case key.Matches(msg, keyBack) && thiss.mode == modeEnterPath:
+	case key.Matches(msg, keyBackspace) && thiss.mode == modeEnterPath:
 		thiss.inputPath = thiss.inputPath[:len(thiss.inputPath)-1]
 		if thiss.inputPath == "" {
 			thiss.changeMode(modeList)
@@ -248,6 +261,7 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, keyEnter) && thiss.mode == modeEnterPath:
 		if thiss.isPathOk(thiss.inputPath) {
+			thiss.previousPath = thiss.path
 			thiss.path = filepath.Clean(thiss.inputPath)
 			thiss.Ls()
 			thiss.rowOffset = 0
@@ -266,7 +280,7 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return thiss, nil
 
-	case key.Matches(msg, keyBack) && thiss.mode == modeSearch:
+	case key.Matches(msg, keyBackspace) && thiss.mode == modeSearch:
 		thiss.searchInput = thiss.searchInput[:len(thiss.searchInput)-1]
 		thiss.cursorIx = 0
 		thiss.rowOffset = 0
@@ -630,7 +644,7 @@ func (thiss *Model) cursorEnter() (shouldExit bool) {
 	}
 
 	if curItem.name == "../" {
-		thiss.goBack()
+		thiss.goParent()
 		return
 	}
 
@@ -638,6 +652,7 @@ func (thiss *Model) cursorEnter() (shouldExit bool) {
 		return
 	}
 
+	thiss.previousPath = thiss.path
 	thiss.path = filepath.Clean(
 		filepath.Join(thiss.path, thiss.CurrentItem().name),
 	)
@@ -648,7 +663,7 @@ func (thiss *Model) cursorEnter() (shouldExit bool) {
 	return
 }
 
-func (thiss *Model) goBack() {
+func (thiss *Model) goParent() {
 	newPath := filepath.Clean(
 		filepath.Join(thiss.path, ".."),
 	)
@@ -672,6 +687,7 @@ func (thiss *Model) goBack() {
 }
 
 func (thiss *Model) goToPath(path string) {
+	thiss.previousPath = thiss.path
 	thiss.path = path
 	thiss.cursorIx = 0
 	thiss.rowOffset = 0

@@ -32,15 +32,16 @@ function s {
 Run the command `s`
 
 ### Keybinds
-- Arrow keys and <Enter>/<Tab> to navigate
-- Alt+Backspace to go to the parent folder
-- / (Slash) to manually input the desired path
-- Just start typing (a-z, lowercase) to search inside folder. The search is case-insensitive.
-- Alt+q to quit WITHOUT changing directory on the parent shell
-- Ctrt+c or Esc to quit CHANGING directory on the parent shell
-- PageUp / PageDown / Home / End working
-- ~ to go to home directory
-- Ctrl+u to clear the input (same as bash)
+- `Arrow keys`, `PageUp`, `PageDown`, `Home` and `End` to navigate
+- `Enter` and `Tab` to enter directory
+- `Alt+Backspace` to go to the parent folder
+- `/` to manually input the desired path
+- Just start typing (`a-z`, lowercase) to search inside folder. The search is case-insensitive.
+- `Alt+q` to quit WITHOUT changing directory on the parent shell
+- `Ctrt+c` or Esc to quit CHANGING directory on the parent shell
+- `~` to go to home directory
+- `-` to go to home directory
+- `Ctrl+u` to clear the input (same as bash)
 
 ## How it works
 Unfortunately, there is easy way to directly change directories of the parent shell of a spawned process. The way `cd-surfer` works is outputting the `cd` command as a string, so the parent shell can evaluate it and change the directory.
