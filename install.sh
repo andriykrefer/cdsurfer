@@ -20,7 +20,7 @@ cp ${shell_cfg_file} "$shell_cfg_file.bk"
 sed '/# cd-surfer/d' "$shell_cfg_file.bk" > ${shell_cfg_file}
 
 # Add config
-printf 'function cds {                       # cd-surfer\n' >> ${shell_cfg_file}
+printf 'function cds {                     # cd-surfer\n' >> ${shell_cfg_file}
 printf '  eval "$(/bin/cd-surfer "$@")"    # cd-surfer\n' >> ${shell_cfg_file}
 printf '}                                  # cd-surfer\n' >> ${shell_cfg_file}
 
