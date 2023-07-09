@@ -185,6 +185,11 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return thiss, nil
 
+	case key.Matches(msg, keySlash) && thiss.mode == modeSearch: // Slash enters directory, on searchMode
+		thiss.cursorEnter()
+		thiss.changeMode(modeList)
+		return thiss, nil
+
 	case key.Matches(msg, keyTilde) && thiss.mode == modeList:
 		homePath, _ := os.UserHomeDir()
 		thiss.path = homePath
@@ -217,13 +222,13 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		thiss.toggleDetails()
 		return thiss, nil
 
-	case key.Matches(msg, keySlash) && thiss.mode == modeList: // Change to _modeEnterPath
-		thiss.changeMode(modeEnterPath)
-		return thiss, nil
+		// Disable modeEnterPath for now
+	// case key.Matches(msg, keySlash) && thiss.mode == modeList: // Change to _modeEnterPath
+	// 	thiss.changeMode(modeEnterPath)
+	// 	return thiss, nil
 
-	case key.Matches(msg, keyEsc, keyClear) && thiss.mode == modeEnterPath:
-		thiss.inputPath = ""
-		thiss.changeMode(modeList)
+	case key.Matches(msg, keySlash) && thiss.mode == modeList: // Go to root
+		thiss.goToPath("/")
 		return thiss, nil
 
 	case msg.Type == tea.KeyRunes && thiss.mode == modeEnterPath:
@@ -642,6 +647,14 @@ func (thiss *Model) goBack() {
 	thiss.path = filepath.Clean(
 		filepath.Join(thiss.path, ".."),
 	)
+	thiss.cursorIx = 0
+	thiss.rowOffset = 0
+	thiss.Ls()
+	thiss.calculateColsAndRows()
+}
+
+func (thiss *Model) goToPath(path string) {
+	thiss.path = path
 	thiss.cursorIx = 0
 	thiss.rowOffset = 0
 	thiss.Ls()
