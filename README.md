@@ -37,14 +37,17 @@ Type `cds` and `Enter`
 - `Alt+Backspace` to go to the parent folder
 - `/` to manually input the desired path
 - Just start typing (`a-z`, lowercase) to search inside folder. The search is case-insensitive.
-- `Alt+q` to quit WITHOUT changing directory on the parent shell
-- `Ctrt+c` or Esc to quit CHANGING directory on the parent shell
+- `Ctrt+c` to quit WITHOUT changing directory on the parent shell
+- `Ctrt+Enter` or `Esc` to quit CHANGING directory on the parent shell
 - `~` to go to home directory
 - `-` to go to home directory
 - `Ctrl+u` to clear the input (same as bash)
 
 ## How it works
 Unfortunately, there is easy way to directly change directories of the parent shell of a spawned process. The way `cd-surfer` works is outputting the `cd` command as a string, so the parent shell can evaluate it and change the directory.
+
+## Dev stage
+This project is in Alpha stage, therefore everything may be subjected to change. Mainly keybindings and overall behavior.
 
 ## TODO features/bugs
 Despite that it is still lacking a lot o features I want in the, for a weekend projectec it is good enought to use in my daily routine. Besides, I do not want to make it a bloated software, so I will keep it simple, focusing on its core features.
@@ -53,7 +56,6 @@ Below is a list of its "roadmap":
 
 - ~~Basic functions (cd and ls replacement)~~ ✔
 - ~~Search~~ ✔
-- ~~Manual path input~~ ✔
 - ~~Finish detailed file view~~ ✔
 - Better README.md
 - Add help/info and tips in the software

@@ -85,8 +85,8 @@ func (thiss *Model) Init() tea.Cmd {
 // https://github.com/charmbracelet/bubbletea/blob/master/key.go
 var (
 	keyEsc           = key.NewBinding(key.WithKeys("esc"))
-	keyKill          = key.NewBinding(key.WithKeys("ctrl+c"))
-	keyQuitWithoutCd = key.NewBinding(key.WithKeys("alt+q"))
+	keyQuit          = key.NewBinding(key.WithKeys("alt+enter"))
+	keyQuitWithoutCd = key.NewBinding(key.WithKeys("ctrl+c"))
 	keyUp            = key.NewBinding(key.WithKeys("up"))
 	keyDown          = key.NewBinding(key.WithKeys("down"))
 	keyLeft          = key.NewBinding(key.WithKeys("left"))
@@ -125,14 +125,12 @@ func (thiss *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, keyKill):
+	case key.Matches(msg, keyQuit):
 		fmt.Fprintf(os.Stderr, "\n")
 		fmt.Println(`cd "` + thiss.path + `"`)
 		return thiss, tea.Quit
 
 	case key.Matches(msg, keyEsc) && thiss.mode == modeList:
-		fmt.Fprintf(os.Stderr, "\n")
-		fmt.Println(`cd "` + thiss.path + `"`)
 		return thiss, tea.Quit
 
 	case key.Matches(msg, keyQuitWithoutCd):
@@ -385,7 +383,9 @@ func renderFooter() string {
 		// "space: Select   shift+c: Copy   alt+x: Cut      alt+v: Paste   del: Delete" +
 		// "\n" +
 		// "alt+h: Help     esc: Quit       lower: Search   alt+d: Details"
-		"[a-z]: Search   alt+d: Details   /:Manual path input   ctrl+c: Quit"
+		// "[/] Go to root   [~] Go to home   [alt+backspace] Go to parent" +
+		// "\n" +
+		"[a-z] Search   [alt+d] Details   [alt+enter] Quit   [ctrl+c] Quit without cd"
 
 	return term.Gray(s, false)
 }
