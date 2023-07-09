@@ -20,7 +20,7 @@ cp ${shell_cfg_file} "$shell_cfg_file.bk"
 sed '/# cd-surfer/d' "$shell_cfg_file.bk" > ${shell_cfg_file}
 
 # Add config
-printf 'function s {                       # cd-surfer\n' >> ${shell_cfg_file}
+printf 'function cds {                       # cd-surfer\n' >> ${shell_cfg_file}
 printf '  eval "$(/bin/cd-surfer "$@")"    # cd-surfer\n' >> ${shell_cfg_file}
 printf '}                                  # cd-surfer\n' >> ${shell_cfg_file}
 
@@ -30,5 +30,5 @@ source $shell_cfg_file
 echo "*************************************************************"
 echo "* cd-surfer installed succcesfully!                         *"
 echo "* Restart open terminals to take effect                     *"
-echo "* Enter the command 's' in the terminal to call cd-surfer   *"
+echo "* Enter the command 'cds' in the terminal to call cd-surfer *"
 echo "*************************************************************"

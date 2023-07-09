@@ -22,14 +22,14 @@ wget -q -O - https://raw.githubusercontent.com/andriykrefer/cdsurfer/master/inst
 - Move to /bin/cd-surfer with 755 permission
 - Add the following lines to your `~/.bashrc`:
 ```bash
-function s {
+function cds {
   eval "$(/bin/cd-surfer "$@")"
 }
 ```
 - Restart the terminal to apply
 
 ## Usage
-Run the command `s`
+Type `cds` and `Enter`
 
 ### Keybinds
 - `Arrow keys`, `PageUp`, `PageDown`, `Home` and `End` to navigate
