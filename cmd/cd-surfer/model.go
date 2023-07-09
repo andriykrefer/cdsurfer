@@ -629,6 +629,11 @@ func (thiss *Model) cursorEnter() (shouldExit bool) {
 		return
 	}
 
+	if curItem.name == "../" {
+		thiss.goBack()
+		return
+	}
+
 	if curItem.fileInfo != nil && !curItem.fileInfo.IsDir() {
 		return
 	}
@@ -644,13 +649,26 @@ func (thiss *Model) cursorEnter() (shouldExit bool) {
 }
 
 func (thiss *Model) goBack() {
-	thiss.path = filepath.Clean(
+	newPath := filepath.Clean(
 		filepath.Join(thiss.path, ".."),
 	)
-	thiss.cursorIx = 0
-	thiss.rowOffset = 0
+	if newPath == thiss.path {
+		return
+	}
+	prevName := filepath.Base(thiss.path)
+	thiss.path = newPath
 	thiss.Ls()
 	thiss.calculateColsAndRows()
+	// Set cursor to the previous open folder
+	thiss.cursorIx = func(name string) (cursorFromName int) {
+		for k, v := range thiss.items {
+			if v.fileInfo != nil && v.fileInfo.Name() == name {
+				return k
+			}
+		}
+		return
+	}(prevName)
+	thiss.setOffsetToMiddleScreen()
 }
 
 func (thiss *Model) goToPath(path string) {
@@ -668,10 +686,14 @@ func (thiss *Model) toggleSelection() {
 	thiss.items[thiss.cursorIx].isSelected = !thiss.items[thiss.cursorIx].isSelected
 }
 
+// setOffsetToMiddleScreen recalculates and set the offset, to cursor be in the middle of the screen
+func (thiss *Model) setOffsetToMiddleScreen() {
+	thiss.rowOffset = 0
+	thiss.addRowOffset(thiss.cursorRowIx() - (thiss.rowsDisplayed() / 2))
+}
+
 func (thiss *Model) toggleDetails() {
 	thiss.showDetails = !thiss.showDetails
 	thiss.calculateColsAndRows()
-	// Re calculate offset. Put on the center of the screen
-	thiss.rowOffset = 0
-	thiss.addRowOffset(thiss.cursorRowIx() - (thiss.rowsDisplayed() / 2))
+	thiss.setOffsetToMiddleScreen()
 }
