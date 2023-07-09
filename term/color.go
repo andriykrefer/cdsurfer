@@ -18,6 +18,10 @@ func Orange(s string, isBg bool) string {
 	return color.C256(208, isBg).Sprint(s)
 }
 
+func Yellow(s string, isBg bool) string {
+	return color.C256(226, isBg).Sprint(s)
+}
+
 func BlueBold(s string, isBg bool) string {
 	c := color.S256(33).SetOpts(color.Opts{color.OpBold})
 	return c.Sprint(s)

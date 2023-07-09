@@ -52,7 +52,9 @@ type Model struct {
 type Item struct {
 	name           string
 	fileInfo       os.FileInfo
-	emphasisTextIx [2]int // Start and end indexes of emphasis text
+	linkTargetInfo os.FileInfo // != nil when file is a symbolic link
+	linkTargetPath string      // != "" when file is a symbolic link
+	emphasisTextIx [2]int      // Start and end indexes of emphasis text
 	isSelected     bool
 	details        ItemDetails
 }
@@ -431,10 +433,31 @@ func (thiss *Model) Ls() {
 
 	thiss.items = addRelDirs()
 	for _, f := range files {
-		info, _ := f.Info()
+		info, err := f.Info()
+		if err != nil {
+			panic(err)
+		}
 		name := info.Name()
 		if info.IsDir() {
 			name += "/"
+		}
+		linkTarget := ""
+		var linkTargetInfo os.FileInfo
+		if isFileSymlink(info) {
+			target, err := os.Readlink(filepath.Join(thiss.path, name))
+			if err != nil {
+				panic(err)
+			}
+			linkTarget = target
+			targetFullPath := target
+			isRelativeTarget := !strings.HasPrefix(target, "/")
+			if isRelativeTarget {
+				targetFullPath = filepath.Clean(filepath.Join(thiss.path, target))
+			}
+			linkTargetInfo, err = os.Stat(targetFullPath)
+			if err != nil {
+				panic(err)
+			}
 		}
 		var perm, username, group, size, date string = getDetails(info)
 		thiss.items = append(thiss.items, Item{
@@ -447,6 +470,8 @@ func (thiss *Model) Ls() {
 				Size:     size,
 				Date:     date,
 			},
+			linkTargetInfo: linkTargetInfo,
+			linkTargetPath: linkTarget,
 		})
 	}
 
@@ -485,25 +510,26 @@ func isFileExecutable(fileInfo os.FileInfo) bool {
 	return fileInfo.Mode()&0111 != 0
 }
 
-func addColorByFileType(text string, item Item, isFocused bool, marks []int) string {
-	isSymlink := func(item Item) bool {
-		if item.fileInfo == nil {
-			return false
-		}
-		return (item.fileInfo.Mode()&os.ModeSymlink == os.ModeSymlink)
-	}
+func isFileSymlink(fileInfo os.FileInfo) bool {
+	return fileInfo.Mode()&os.ModeSymlink != 0
+}
 
+func addColorByFileType(text string, item Item, isFocused bool, marks []int) string {
+	// isSymlink := false
+	isSymlink := item.linkTargetInfo != nil
+	isSymlinkTargetDir := item.linkTargetInfo != nil && item.linkTargetInfo.IsDir()
+	isSymlinkTargetExec := item.linkTargetInfo != nil && isFileExecutable(item.linkTargetInfo)
 	if isFocused {
 		text = term.Violet(text, true)
 	} else if item.isSelected {
 		text = term.Orange(text, true)
 	} else if item.fileInfo == nil {
 		text = addTextEmphasisAndBlue(text, marks)
-	} else if item.fileInfo.IsDir() {
+	} else if isSymlink {
+		text = addTextEmphasisAndYellow(text, marks)
+	} else if item.fileInfo.IsDir() || (isSymlink && isSymlinkTargetDir) {
 		text = addTextEmphasisAndBlue(text, marks)
-	} else if isSymlink(item) {
-		//
-	} else if isFileExecutable(item.fileInfo) {
+	} else if isFileExecutable(item.fileInfo) || (isSymlink && isSymlinkTargetExec) {
 		text = addTextEmphasisAndGreen(text, marks)
 	} else {
 		text = addTextEmphasisAndNothing(text, marks)
@@ -532,9 +558,11 @@ func addTextEmphasisAndGreen(text string, marks []int) string {
 	return term.Green(s1, false) + term.Emphasis(s2) + term.Green(s3, false)
 }
 
-func (thiss *Model) renderItem(item Item, isFocused bool) string {
-	style := lipgloss.NewStyle().Width(thiss.colSize)
-	return style.Render(addColorByFileType(item.name, item, isFocused, item.emphasisTextIx[:]))
+func addTextEmphasisAndYellow(text string, marks []int) string {
+	s1 := text[0:marks[0]]
+	s2 := text[marks[0]:marks[1]]
+	s3 := text[marks[1]:]
+	return term.Yellow(s1, false) + term.Emphasis(s2) + term.Yellow(s3, false)
 }
 
 func getDetails(fileInfo os.FileInfo) (perm, username, group, size, date string) {
@@ -570,15 +598,40 @@ func getDetailsSizes(all []Item) (permSz, userSz, groupSz, sizeSz, dateSz int) {
 	return
 }
 
+func (thiss *Model) renderItem(item Item, isFocused bool) string {
+	style := lipgloss.NewStyle().Width(thiss.colSize)
+	// Handle symlink colors as the target colors
+	isSymlink := item.linkTargetInfo != nil
+	if isSymlink {
+		item.fileInfo = item.linkTargetInfo
+		item.linkTargetInfo = nil
+		if item.fileInfo.IsDir() {
+			item.name += "/"
+		}
+	}
+	return style.Render(addColorByFileType(item.name, item, isFocused, item.emphasisTextIx[:]))
+}
+
 func (thiss *Model) renderItemWithDetails(item Item, all []Item, isFocused bool) string {
 	sep := strings.Repeat(" ", config.DETAILS_SEPARATOR_SZ)
+	symlinkInfo := ""
+	if item.linkTargetInfo != nil {
+		itemTarget := item
+		itemTarget.fileInfo = item.linkTargetInfo
+		itemTarget.linkTargetInfo = nil
+		dirSlash := ""
+		if itemTarget.fileInfo.IsDir() {
+			dirSlash = "/"
+		}
+		symlinkInfo = " -> " + addColorByFileType(item.linkTargetPath+dirSlash, itemTarget, false, []int{0, 0})
+	}
 	var permSz, userSz, groupSz, sizeSz, dateSz = getDetailsSizes(all)
 	var details = term.Width(item.details.Perm, permSz) + sep +
 		term.Width(item.details.Username, userSz) + sep +
 		term.Width(item.details.Group, groupSz) + sep +
 		term.Width(item.details.Size, sizeSz) + sep +
 		term.Width(item.details.Date, dateSz) + sep
-	return term.Gray(details, false) + addColorByFileType(item.name, item, isFocused, item.emphasisTextIx[:])
+	return term.Gray(details, false) + addColorByFileType(item.name, item, isFocused, item.emphasisTextIx[:]) + symlinkInfo
 }
 
 func (thiss *Model) changeMode(mode modeEnum) {
