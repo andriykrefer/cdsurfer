@@ -721,9 +721,17 @@ func (thiss *Model) cursorEnter() (shouldExit bool, exitCmd string) {
 	if curItem.fileInfo != nil && !curItem.fileInfo.IsDir() {
 		shouldExit = true
 		if isFileExecutable(curItem.fileInfo) {
-			exitCmd = `cd "` + thiss.path + `" && "./` + curItem.name + `"`
+			var execCmd = `"./` + curItem.name + `"`
+			exitCmd = `cd "` + thiss.path + `" && ` + execCmd
+			if config.ADD_LAST_CMD_TO_HISTORY {
+				exitCmd += " && history -s " + execCmd
+			}
 		} else {
-			exitCmd = `cd "` + thiss.path + `" && ` + fmt.Sprintf(config.EDIT_FILE_CMD, curItem.name)
+			var execCmd = fmt.Sprintf(config.EDIT_FILE_CMD, curItem.name)
+			exitCmd = `cd "` + thiss.path + `" && ` + execCmd
+			if config.ADD_LAST_CMD_TO_HISTORY {
+				exitCmd += " && history -s '" + execCmd + "'"
+			}
 		}
 		return
 	}
