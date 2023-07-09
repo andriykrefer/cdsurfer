@@ -187,11 +187,11 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return thiss, nil
 
 	case key.Matches(msg, keyEnter, keyTab) && (thiss.mode == modeList || thiss.mode == modeSearch):
-		shouldExit := thiss.cursorEnter()
+		shouldExit, exitCmd := thiss.cursorEnter()
 		thiss.changeMode(modeList)
 		if shouldExit {
 			fmt.Fprintf(os.Stderr, "\n")
-			fmt.Println(`cd "` + thiss.path + `"`)
+			fmt.Println(exitCmd)
 			return thiss, tea.Quit
 		}
 		return thiss, nil
@@ -478,17 +478,14 @@ func sortItemsFoldersFirst(items []Item) []Item {
 	return ret
 }
 
-func addColorByFileType(text string, item Item, isFocused bool, marks []int) string {
-	isExecutable := func(item Item) bool {
-		if item.fileInfo == nil {
-			return false
-		}
-		perm := item.fileInfo.Mode().String()
-		return (perm[3:4] == "x") ||
-			(perm[6:7] == "x") ||
-			(perm[9:10] == "x")
+func isFileExecutable(fileInfo os.FileInfo) bool {
+	if fileInfo == nil {
+		return false
 	}
+	return fileInfo.Mode()&0111 != 0
+}
 
+func addColorByFileType(text string, item Item, isFocused bool, marks []int) string {
 	isSymlink := func(item Item) bool {
 		if item.fileInfo == nil {
 			return false
@@ -506,7 +503,7 @@ func addColorByFileType(text string, item Item, isFocused bool, marks []int) str
 		text = addTextEmphasisAndBlue(text, marks)
 	} else if isSymlink(item) {
 		//
-	} else if isExecutable(item) {
+	} else if isFileExecutable(item.fileInfo) {
 		text = addTextEmphasisAndGreen(text, marks)
 	} else {
 		text = addTextEmphasisAndNothing(text, marks)
@@ -695,11 +692,12 @@ func (thiss *Model) addRowOffset(val int) {
 	thiss.rowOffset = minMax(thiss.rowOffset+val, 0, thiss.rows-1)
 }
 
-func (thiss *Model) cursorEnter() (shouldExit bool) {
+func (thiss *Model) cursorEnter() (shouldExit bool, exitCmd string) {
 	curItem := thiss.CurrentItem()
 
 	if curItem.name == "./" {
 		shouldExit = true
+		exitCmd = `cd "` + thiss.path + `"`
 		return
 	}
 
@@ -708,18 +706,28 @@ func (thiss *Model) cursorEnter() (shouldExit bool) {
 		return
 	}
 
-	if curItem.fileInfo != nil && !curItem.fileInfo.IsDir() {
+	if curItem.fileInfo != nil && curItem.fileInfo.IsDir() {
+		thiss.previousPath = thiss.path
+		thiss.path = filepath.Clean(
+			filepath.Join(thiss.path, thiss.CurrentItem().name),
+		)
+		thiss.cursorIx = 0
+		thiss.rowOffset = 0
+		thiss.Ls()
+		thiss.calculateColsAndRows()
 		return
 	}
 
-	thiss.previousPath = thiss.path
-	thiss.path = filepath.Clean(
-		filepath.Join(thiss.path, thiss.CurrentItem().name),
-	)
-	thiss.cursorIx = 0
-	thiss.rowOffset = 0
-	thiss.Ls()
-	thiss.calculateColsAndRows()
+	if curItem.fileInfo != nil && !curItem.fileInfo.IsDir() {
+		shouldExit = true
+		if isFileExecutable(curItem.fileInfo) {
+			exitCmd = `cd "` + thiss.path + `" && "./` + curItem.name + `"`
+		} else {
+			exitCmd = `cd "` + thiss.path + `" && ` + fmt.Sprintf(config.EDIT_FILE_CMD, curItem.name)
+		}
+		return
+	}
+
 	return
 }
 
