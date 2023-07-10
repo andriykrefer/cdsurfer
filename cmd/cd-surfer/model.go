@@ -518,11 +518,16 @@ func isFileSymlink(fileInfo os.FileInfo) bool {
 	return fileInfo.Mode()&os.ModeSymlink != 0
 }
 
+func isFileDevice(fileInfo os.FileInfo) bool {
+	return fileInfo.Mode()&os.ModeDevice != 0
+}
+
 func addColorByFileType(text string, item Item, isFocused bool, marks []int) string {
 	// isSymlink := false
 	isSymlink := item.linkTargetInfo != nil
-	isSymlinkTargetDir := item.linkTargetInfo != nil && item.linkTargetInfo.IsDir()
-	isSymlinkTargetExec := item.linkTargetInfo != nil && isFileExecutable(item.linkTargetInfo)
+	isSymlinkTargetDir := isSymlink && item.linkTargetInfo.IsDir()
+	isSymlinkTargetExec := isSymlink && isFileExecutable(item.linkTargetInfo)
+	isSymlinkTargetDevice := isSymlink && isFileDevice(item.linkTargetInfo)
 	if isFocused {
 		text = term.Violet(text, true)
 	} else if item.isSelected {
@@ -530,6 +535,8 @@ func addColorByFileType(text string, item Item, isFocused bool, marks []int) str
 	} else if item.fileInfo == nil {
 		text = addTextEmphasisAndBlue(text, marks)
 	} else if isSymlink {
+		text = addTextEmphasisAndCyan(text, marks)
+	} else if isFileDevice(item.fileInfo) || (isSymlink && isSymlinkTargetDevice) {
 		text = addTextEmphasisAndYellow(text, marks)
 	} else if item.fileInfo.IsDir() || (isSymlink && isSymlinkTargetDir) {
 		text = addTextEmphasisAndBlue(text, marks)
@@ -567,6 +574,13 @@ func addTextEmphasisAndYellow(text string, marks []int) string {
 	s2 := text[marks[0]:marks[1]]
 	s3 := text[marks[1]:]
 	return term.Yellow(s1, false) + term.Emphasis(s2) + term.Yellow(s3, false)
+}
+
+func addTextEmphasisAndCyan(text string, marks []int) string {
+	s1 := text[0:marks[0]]
+	s2 := text[marks[0]:marks[1]]
+	s3 := text[marks[1]:]
+	return term.Cyan(s1, false) + term.Emphasis(s2) + term.Cyan(s3, false)
 }
 
 func getDetails(fileInfo os.FileInfo) (perm, username, group, size, date string) {

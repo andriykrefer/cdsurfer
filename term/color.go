@@ -23,12 +23,16 @@ func Yellow(s string, isBg bool) string {
 }
 
 func BlueBold(s string, isBg bool) string {
-	c := color.S256(33).SetOpts(color.Opts{color.OpBold})
+	c := color.S256(39).SetOpts(color.Opts{color.OpBold})
 	return c.Sprint(s)
 }
 
 func Blue(s string, isBg bool) string {
-	return color.C256(33, isBg).Sprint(s)
+	return color.C256(75, isBg).Sprint(s)
+}
+
+func Cyan(s string, isBg bool) string {
+	return color.C256(51, isBg).Sprint(s)
 }
 
 func Green(s string, isBg bool) string {
