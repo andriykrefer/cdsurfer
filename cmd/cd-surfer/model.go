@@ -187,7 +187,10 @@ func (thiss *Model) updateStateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return thiss, nil
 
 	case key.Matches(msg, keyEnter, keyTab) && (thiss.mode == modeList || thiss.mode == modeSearch):
-		shouldExit, exitCmd := thiss.cursorEnter()
+		shouldExit, hasFailed, exitCmd := thiss.cursorEnter()
+		if hasFailed {
+			return thiss, nil
+		}
 		thiss.changeMode(modeList)
 		if shouldExit {
 			fmt.Fprintf(os.Stderr, "\n")
@@ -746,7 +749,11 @@ func (thiss *Model) addRowOffset(val int) {
 	thiss.rowOffset = minMax(thiss.rowOffset+val, 0, thiss.rows-1)
 }
 
-func (thiss *Model) cursorEnter() (shouldExit bool, exitCmd string) {
+func (thiss *Model) cursorEnter() (shouldExit bool, hasFailed bool, exitCmd string) {
+	if len(thiss.items) == 0 {
+		hasFailed = true
+		return
+	}
 	curItem := thiss.CurrentItem()
 
 	if curItem.name == "./" {
