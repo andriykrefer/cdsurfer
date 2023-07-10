@@ -393,7 +393,8 @@ func renderFooter() string {
 }
 
 func (thiss *Model) Ls() {
-	files, err := os.ReadDir(thiss.path)
+	resolvedPath, _ := filepath.EvalSymlinks(thiss.path)
+	files, err := os.ReadDir(resolvedPath)
 	if err != nil {
 		panic(err)
 	}
@@ -444,17 +445,17 @@ func (thiss *Model) Ls() {
 		linkTarget := ""
 		var linkTargetInfo os.FileInfo
 		if isFileSymlink(info) {
-			target, err := os.Readlink(filepath.Join(thiss.path, name))
+			target, err := os.Readlink(filepath.Join(resolvedPath, name))
 			if err != nil {
 				panic(err)
 			}
 			linkTarget = target
-			targetFullPath := target
-			isRelativeTarget := !strings.HasPrefix(target, "/")
+			targetResolvedFullPath, _ := filepath.EvalSymlinks(filepath.Join(resolvedPath, name))
+			isRelativeTarget := !filepath.IsAbs(targetResolvedFullPath)
 			if isRelativeTarget {
-				targetFullPath = filepath.Clean(filepath.Join(thiss.path, target))
+				targetResolvedFullPath = filepath.Clean(filepath.Join(resolvedPath, targetResolvedFullPath))
 			}
-			linkTargetInfo, err = os.Stat(targetFullPath)
+			linkTargetInfo, err = os.Stat(targetResolvedFullPath)
 			if err != nil {
 				panic(err)
 			}
@@ -759,10 +760,18 @@ func (thiss *Model) cursorEnter() (shouldExit bool, exitCmd string) {
 		return
 	}
 
-	if curItem.fileInfo != nil && curItem.fileInfo.IsDir() {
+	if curItem.fileInfo == nil {
+		return
+	}
+	isSymlink := curItem.linkTargetInfo != nil
+	fileInfo := curItem.fileInfo
+	if isSymlink {
+		fileInfo = curItem.linkTargetInfo
+	}
+	if fileInfo.IsDir() {
 		thiss.previousPath = thiss.path
 		thiss.path = filepath.Clean(
-			filepath.Join(thiss.path, thiss.CurrentItem().name),
+			filepath.Join(thiss.path, curItem.name),
 		)
 		thiss.cursorIx = 0
 		thiss.rowOffset = 0
@@ -771,9 +780,9 @@ func (thiss *Model) cursorEnter() (shouldExit bool, exitCmd string) {
 		return
 	}
 
-	if curItem.fileInfo != nil && !curItem.fileInfo.IsDir() {
+	if !fileInfo.IsDir() {
 		shouldExit = true
-		if isFileExecutable(curItem.fileInfo) {
+		if isFileExecutable(fileInfo) {
 			var execCmd = `"./` + curItem.name + `"`
 			exitCmd = `cd "` + thiss.path + `" && ` + execCmd
 			if config.ADD_LAST_CMD_TO_HISTORY {

@@ -57,6 +57,7 @@ Below is a list of its "roadmap":
 - ~~Basic functions (cd and ls replacement)~~ ✔
 - ~~Search~~ ✔
 - ~~Finish detailed file view~~ ✔
+- ~~Handle Symlinks~~ ✔
 - Better README.md
 - Add help/info and tips in the software
 - File operations
@@ -65,10 +66,8 @@ Below is a list of its "roadmap":
     - Delete
     - Rename
     - Create folder
-
 - Open Editor when select a file
 - Create a config file for customizations
-- Handle Symlinks
 - Easy permissions editor
 - Handle errors gracefully. For instance when a user tries to access a folder he does not have permissions
 - Support for other shells besides bash
