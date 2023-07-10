@@ -37,8 +37,8 @@ Type `cds` and `Enter`
 - `Alt+Backspace` to go to the parent folder
 - `/` to manually input the desired path
 - Just start typing (`a-z`, lowercase) to search inside folder. The search is case-insensitive.
-- `Ctrt+c` to quit WITHOUT changing directory on the parent shell
-- `Ctrt+Enter` or `Esc` to quit CHANGING directory on the parent shell
+- `Ctrt+c` or `Esc` to quit WITHOUT changing directory on the parent shell
+- `Ctrt+Enter` to quit CHANGING directory on the parent shell
 - `~` to go to home directory
 - `-` to go to home directory
 - `Ctrl+u` to clear the input (same as bash)
