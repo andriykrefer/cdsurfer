@@ -592,12 +592,20 @@ func getDetails(fileInfo os.FileInfo) (perm, username, group, size, date string)
 	// User
 	var fsys = fileInfo.Sys()
 	var uid = fsys.(*syscall.Stat_t).Uid
-	var us, _ = user.LookupId(strconv.Itoa(int(uid)))
-	username = us.Username
+	var us, err = user.LookupId(strconv.Itoa(int(uid)))
+	if err != nil {
+		username = "( " + strconv.Itoa(int(uid)) + " )"
+	} else {
+		username = us.Username
+	}
 	// Group
 	var gid = fsys.(*syscall.Stat_t).Gid
-	var gr, _ = user.LookupGroupId(strconv.Itoa(int(gid)))
-	group = gr.Name
+	gr, err := user.LookupGroupId(strconv.Itoa(int(gid)))
+	if err != nil {
+		group = "( " + strconv.Itoa(int(gid)) + " )"
+	} else {
+		group = gr.Name
+	}
 	// Size
 	size = humanize.Bytes(uint64(fileInfo.Size()))
 	// date
