@@ -54,7 +54,8 @@ type Item struct {
 	fileInfo       os.FileInfo
 	linkTargetInfo os.FileInfo // != nil when file is a symbolic link
 	linkTargetPath string      // != "" when file is a symbolic link
-	emphasisTextIx [2]int      // Start and end indexes of emphasis text
+	linkIsBroken   bool
+	emphasisTextIx [2]int // Start and end indexes of emphasis text
 	isSelected     bool
 	details        ItemDetails
 }
@@ -446,6 +447,7 @@ func (thiss *Model) Ls() {
 			name += "/"
 		}
 		linkTarget := ""
+		linkIsBroken := false
 		var linkTargetInfo os.FileInfo
 		if isFileSymlink(info) {
 			target, err := os.Readlink(filepath.Join(resolvedPath, name))
@@ -453,12 +455,15 @@ func (thiss *Model) Ls() {
 				panic(err)
 			}
 			linkTarget = target
-			targetResolvedFullPath, _ := filepath.EvalSymlinks(filepath.Join(resolvedPath, name))
+			targetResolvedFullPath, err := filepath.EvalSymlinks(filepath.Join(resolvedPath, name))
+			if err != nil {
+				linkIsBroken = true
+			}
 			isRelativeTarget := !filepath.IsAbs(targetResolvedFullPath)
 			if isRelativeTarget {
 				targetResolvedFullPath = filepath.Clean(filepath.Join(resolvedPath, targetResolvedFullPath))
 			}
-			linkTargetInfo, err = os.Stat(targetResolvedFullPath)
+			linkTargetInfo, err = os.Lstat(targetResolvedFullPath)
 			if err != nil {
 				panic(err)
 			}
@@ -476,6 +481,7 @@ func (thiss *Model) Ls() {
 			},
 			linkTargetInfo: linkTargetInfo,
 			linkTargetPath: linkTarget,
+			linkIsBroken:   linkIsBroken,
 		})
 	}
 
@@ -528,12 +534,15 @@ func addColorByFileType(text string, item Item, isFocused bool, marks []int) str
 	isSymlinkTargetDir := isSymlink && item.linkTargetInfo.IsDir()
 	isSymlinkTargetExec := isSymlink && isFileExecutable(item.linkTargetInfo)
 	isSymlinkTargetDevice := isSymlink && isFileDevice(item.linkTargetInfo)
+	isSymlinkBroken := isSymlink && item.linkIsBroken
 	if isFocused {
 		text = term.Violet(text, true)
 	} else if item.isSelected {
 		text = term.Orange(text, true)
 	} else if item.fileInfo == nil {
 		text = addTextEmphasisAndBlue(text, marks)
+	} else if isSymlinkBroken {
+		text = addTextEmphasisAndRedBg(text, marks)
 	} else if isSymlink {
 		text = addTextEmphasisAndCyan(text, marks)
 	} else if isFileDevice(item.fileInfo) || (isSymlink && isSymlinkTargetDevice) {
@@ -581,6 +590,13 @@ func addTextEmphasisAndCyan(text string, marks []int) string {
 	s2 := text[marks[0]:marks[1]]
 	s3 := text[marks[1]:]
 	return term.Cyan(s1, false) + term.Emphasis(s2) + term.Cyan(s3, false)
+}
+
+func addTextEmphasisAndRedBg(text string, marks []int) string {
+	s1 := text[0:marks[0]]
+	s2 := text[marks[0]:marks[1]]
+	s3 := text[marks[1]:]
+	return term.Red(s1, true) + term.Emphasis(s2) + term.Red(s3, true)
 }
 
 func getDetails(fileInfo os.FileInfo) (perm, username, group, size, date string) {
