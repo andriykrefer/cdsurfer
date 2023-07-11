@@ -8,7 +8,7 @@ Some features:
 - Easy in-folder search (just start typing)
 - Should be easy to integrate with any shell (currently it only supports bash)
 
-![demo](https://github.com/andriykrefer/cdsurfer/assets/30701181/39df95b6-d80a-4de3-8b16-12684e9f574d)
+![demo](https://github.com/andriykrefer/cdsurfer/assets/30701181/ae4c04a7-eec2-43b8-a5f3-424616119e5c)
 
 ## Install
 - Run
