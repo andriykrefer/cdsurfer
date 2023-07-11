@@ -10,6 +10,9 @@ Some features:
 
 ![demo](https://github.com/andriykrefer/cdsurfer/assets/30701181/ec80835e-f715-41fc-9032-a5a86f16173f)
 
+In-folder search demo:
+![search](https://github.com/andriykrefer/cdsurfer/assets/30701181/0d88d4c9-a935-48f4-b7ad-79b19fb0ae1f)
+
 ## Install
 - Run
 ```bash
